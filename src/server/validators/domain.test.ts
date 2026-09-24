@@ -1,0 +1,60 @@
+import { describe, expect, it } from "vitest";
+import { businessCreateSchema, customerSchema, customerUpdateSchema, expenseSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, productSchema, productUpdateSchema, saleSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
+
+describe("domain input validation", () => {
+  it("accepts a valid product with minor-unit pricing", () => {
+    expect(productSchema.safeParse({ name: "Remera", priceMinor: 280000, stock: 20, minimumStock: 5 }).success).toBe(true);
+  });
+
+  it("rejects negative stock and unknown fields", () => {
+    expect(productSchema.safeParse({ name: "Remera", priceMinor: 100, stock: -1, minimumStock: 0, role: "ADMIN" }).success).toBe(false);
+  });
+
+  it("rejects a sale with duplicate products", () => {
+    const result = saleSchema.safeParse({ paymentMethod: "TRANSFER", items: [{ productId: "00000000-0000-0000-0000-000000000001", quantity: 1 }, { productId: "00000000-0000-0000-0000-000000000001", quantity: 2 }] });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires a customer name", () => {
+    expect(customerSchema.safeParse({ name: "" }).success).toBe(false);
+  });
+
+  it("accepts product updates and non-zero inventory adjustments", () => {
+    expect(productUpdateSchema.safeParse({ name: "Remera", priceMinor: 100, minimumStock: 2, status: "ACTIVE" }).success).toBe(true);
+    expect(inventoryAdjustmentSchema.safeParse({ quantity: -3, reason: "Merma" }).success).toBe(true);
+    expect(inventoryAdjustmentSchema.safeParse({ quantity: 0 }).success).toBe(false);
+  });
+
+  it("accepts valid updates for customer profile", () => {
+    expect(customerUpdateSchema.safeParse({ name: "Ana López", email: "ana@test.com", phone: "+54 9 11 1111", notes: "Cliente recurrente" }).success).toBe(true);
+    expect(customerUpdateSchema.safeParse({ name: "", phone: "123" }).success).toBe(false);
+  });
+
+  it("accepts valid team invite and role updates", () => {
+    expect(membershipInviteSchema.safeParse({ email: "team@example.com", role: "EMPLOYEE" }).success).toBe(true);
+    expect(membershipRoleSchema.safeParse({ role: "OWNER" }).success).toBe(true);
+    expect(membershipInviteSchema.safeParse({ email: "bad-email", role: "OWNER" }).success).toBe(false);
+  });
+
+  it("accepts valid user profile updates and rejects empty payloads", () => {
+    expect(userProfileUpdateSchema.safeParse({ name: "María García", email: "maria@test.com" }).success).toBe(true);
+    expect(userProfileUpdateSchema.safeParse({ password: "short" }).success).toBe(false);
+    expect(userProfileUpdateSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("accepts business creation payloads and rejects empty names", () => {
+    expect(businessCreateSchema.safeParse({ name: "La Esquina" }).success).toBe(true);
+    expect(businessCreateSchema.safeParse({ name: "" }).success).toBe(false);
+  });
+
+  it("accepts suppliers and positive expenses", () => {
+    expect(supplierSchema.safeParse({ name: "Distribuidora Sur", type: "SUPPLY", email: "compras@test.com" }).success).toBe(true);
+    expect(expenseSchema.safeParse({ description: "Compra de insumos", amountMinor: 1250000 }).success).toBe(true);
+    expect(expenseSchema.safeParse({ description: "Compra", amountMinor: 0 }).success).toBe(false);
+  });
+
+  it("accepts tasks with optional assignment and rejects empty titles", () => {
+    expect(taskSchema.safeParse({ title: "Revisar stock" }).success).toBe(true);
+    expect(taskSchema.safeParse({ title: "" }).success).toBe(false);
+  });
+});
