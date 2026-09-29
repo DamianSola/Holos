@@ -1,5 +1,13 @@
 import Link from "next/link";
+import { HolosLogo } from "@/components/brand/holos-logo";
 
 export default function NotFound() {
-  return <main className="route-state"><h1>Vista no encontrada.</h1><p>La dirección que buscaste no existe.</p><Link className="auth-footer-link" href="/">Volver al inicio</Link></main>;
+  return (
+    <main className="route-state">
+      <HolosLogo />
+      <h1>Esa vista no existe.</h1>
+      <p>La dirección no corresponde a ninguna operación de Holos.</p>
+      <Link className="auth-submit route-retry" href="/">Volver al tablero</Link>
+    </main>
+  );
 }

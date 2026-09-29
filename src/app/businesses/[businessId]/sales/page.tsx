@@ -1,12 +1,15 @@
-import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
-import { getSessionUser } from "@/server/auth/session";
 import { SalesPage } from "@/components/modules/sales-page";
+import { ServiceSalesPage } from "@/components/modules/service-sales-page";
+import { requireBusinessPage } from "@/server/billing/access";
 
 export default async function SalesRoute({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await params;
-  const user = await getSessionUser();
-  const membership = user?.memberships.find((item) => item.businessId === businessId);
-  if (!user || !membership) redirect("/login");
-  return <AppShell businessId={businessId} userName={user.name ?? user.email}><SalesPage businessId={businessId} /></AppShell>;
+  const { user, membership } = await requireBusinessPage(businessId);
+  const kind = membership.business.kind;
+  return (
+    <AppShell businessId={businessId} businessKind={kind} userName={user.name ?? user.email}>
+      {kind === "SERVICE" ? <ServiceSalesPage businessId={businessId} /> : <SalesPage businessId={businessId} />}
+    </AppShell>
+  );
 }

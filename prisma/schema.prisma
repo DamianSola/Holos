@@ -69,6 +69,22 @@ enum TaskStatus {
   ARCHIVED
 }
 
+enum OrderKind {
+  PRODUCT
+  SERVICE
+}
+
+enum OrderStatus {
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+enum BusinessKind {
+  STORE
+  SERVICE
+}
+
 model User {
   id              String        @id @default(uuid()) @db.Uuid
   email           String
@@ -86,11 +102,15 @@ model User {
   invitationsSent Invitation[]  @relation("InvitationInviter")
   auditLogs       AuditLog[]    @relation("AuditActor")
   salesCreated    Sale[]        @relation("SaleCreator")
+  ordersCreated   CustomerOrder[] @relation("OrderCreator")
   expensesCreated Expense[]      @relation("ExpenseCreator")
   tasksCreated    Task[]         @relation("TaskCreator")
   tasksAssigned   Task[]         @relation("TaskAssignee")
   notifications   Notification[]
   activities      ActivityEvent[]
+  subscription    Subscription?
+  passwordResets  PasswordResetToken[]
+  billingPayments BillingPayment[]
 
   @@index([status])
   @@index([deletedAt])
@@ -140,6 +160,8 @@ model Business {
   name        String
   legalName   String?
   taxId       String?
+  kind        BusinessKind @default(STORE)
+  receiptSeq  Int          @default(0)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?
@@ -150,12 +172,14 @@ model Business {
   products     Product[]
   movements    InventoryMovement[]
   sales        Sale[]
+  orders       CustomerOrder[]
   invoices     Invoice[]
   suppliers    Supplier[]
   expenses     Expense[]
   tasks        Task[]
   notifications Notification[]
   activities   ActivityEvent[]
+  fiscalProfile FiscalProfile?
 
   @@index([deletedAt])
 }
@@ -211,6 +235,7 @@ model Customer {
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   sales    Sale[]
+  orders   CustomerOrder[]
 
   @@index([businessId, name])
   @@index([businessId, email])
@@ -260,6 +285,34 @@ model Expense {
   @@index([businessId, expenseDate])
   @@index([businessId, supplierId])
   @@index([deletedAt])
+}
+
+model CustomerOrder {
+  id           String      @id @default(uuid()) @db.Uuid
+  businessId   String      @db.Uuid
+  customerId   String      @db.Uuid
+  createdById  String      @db.Uuid
+  productId    String?     @db.Uuid
+  kind         OrderKind
+  status       OrderStatus @default(SCHEDULED)
+  title        String
+  quantity     Int         @default(1)
+  scheduledFor DateTime
+  amountMinor  Int?
+  notes        String?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  business  Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy User      @relation("OrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, status, scheduledFor])
+  @@index([businessId, customerId])
+  @@index([createdById])
 }
 
 model Task {
@@ -320,6 +373,7 @@ model Product {
   business  Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
   movements InventoryMovement[]
   saleItems SaleItem[]
+  orders    CustomerOrder[]
 
   @@index([businessId, status])
   @@index([businessId, name])
@@ -354,6 +408,9 @@ model Sale {
   paymentMethod PaymentMethod?
   subtotalMinor Int         @default(0)
   totalMinor    Int         @default(0)
+  serviceDate DateTime?
+  place       String?
+  description String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   confirmedAt DateTime?
@@ -372,16 +429,16 @@ model Sale {
 }
 
 model SaleItem {
-  id             String @id @default(uuid()) @db.Uuid
-  saleId         String @db.Uuid
-  productId      String @db.Uuid
+  id             String  @id @default(uuid()) @db.Uuid
+  saleId         String  @db.Uuid
+  productId      String? @db.Uuid
   productName    String
   quantity       Int
   unitPriceMinor Int
   totalMinor     Int
 
-  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@unique([saleId, productId])
   @@index([productId])
@@ -459,4 +516,94 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([action])
   @@index([createdAt])
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum IvaCondition {
+  MONOTRIBUTO
+  RESPONSABLE_INSCRIPTO
+}
+
+enum FiscalEnvironment {
+  HOMOLOGACION
+  PRODUCCION
+}
+
+enum BackupStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model Subscription {
+  id               String             @id @default(uuid()) @db.Uuid
+  userId           String             @unique @db.Uuid
+  status           SubscriptionStatus @default(TRIALING)
+  trialEndsAt      DateTime
+  currentPeriodEnd DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BillingPayment {
+  id          String   @id
+  userId      String   @db.Uuid
+  amountMinor Int
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model FiscalProfile {
+  id             String            @id @default(uuid()) @db.Uuid
+  businessId     String            @unique @db.Uuid
+  cuit           String
+  pointOfSale    Int
+  ivaCondition   IvaCondition
+  environment    FiscalEnvironment @default(HOMOLOGACION)
+  certCiphertext String
+  keyCiphertext  String
+  wsaaToken      String?
+  wsaaSign       String?
+  wsaaExpiresAt  DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model BackupSnapshot {
+  id            String       @id @default(uuid()) @db.Uuid
+  status        BackupStatus
+  byteSize      Int          @default(0)
+  filePath      String?
+  emailedOwners Int          @default(0)
+  error         String?
+  createdAt     DateTime     @default(now())
+  finishedAt    DateTime?
+
+  @@index([status, createdAt])
 }

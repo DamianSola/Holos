@@ -67,7 +67,7 @@ export async function getBusinessDashboard(businessId: string) {
   startOfDay.setHours(0, 0, 0, 0);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [monthSales, todaySales, productsSold, customers, criticalProducts, activity, productCount, supplierCount, memberCount, monthExpenses, recentSales, business, members] = await prisma.$transaction([
+  const [monthSales, todaySales, productsSold, customers, criticalProducts, activity, productCount, supplierCount, memberCount, monthExpenses, recentSales, scheduledServices, business, members] = await prisma.$transaction([
     prisma.sale.aggregate({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
     prisma.sale.aggregate({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: startOfDay } }, _sum: { totalMinor: true } }),
     prisma.saleItem.aggregate({ where: { sale: { businessId, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } } }, _sum: { quantity: true } }),
@@ -79,7 +79,8 @@ export async function getBusinessDashboard(businessId: string) {
     prisma.membership.count({ where: { businessId, deletedAt: null } }),
     prisma.expense.aggregate({ where: { businessId, deletedAt: null, expenseDate: { gte: startOfMonth } }, _sum: { amountMinor: true } }),
     prisma.sale.findMany({ where: { businessId }, include: { customer: { select: { name: true } }, invoice: { select: { number: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
-    prisma.business.findUnique({ where: { id: businessId }, select: { id: true, name: true, legalName: true, taxId: true } }),
+    prisma.customerOrder.count({ where: { businessId, kind: "SERVICE", status: "SCHEDULED" } }),
+    prisma.business.findUnique({ where: { id: businessId }, select: { id: true, name: true, legalName: true, taxId: true, kind: true } }),
     prisma.membership.findMany({ where: { businessId, deletedAt: null }, include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { createdAt: "asc" } }),
   ]);
 
@@ -94,6 +95,7 @@ export async function getBusinessDashboard(businessId: string) {
     supplierCount,
     memberCount,
     expensesMonthMinor: monthExpenses._sum.amountMinor ?? 0,
+    scheduledServices,
     recentSales,
     business,
     members,

@@ -17,6 +17,8 @@ export async function POST(request: Request, context: Context) {
   const { businessId } = await context.params;
   const access = await authorizeBusiness(businessId);
   if ("response" in access) return access.response;
+  const business = await prisma.business.findFirst({ where: { id: businessId, deletedAt: null }, select: { kind: true } });
+  if (business?.kind === "SERVICE") return errorResponse(422, "SERVICE_BUSINESS", "Este negocio ofrece servicios y no lleva catálogo de productos.");
   const parsed = productSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return errorResponse(400, "VALIDATION_ERROR", "Datos inválidos.", parsed.error.flatten());
 

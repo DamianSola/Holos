@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { errorResponse, isDatabaseInitializationError, unexpectedError } from "@/server/http";
 import { createSession } from "@/server/auth/session";
+import { trialEndsAtFrom } from "@/server/billing/plan";
 
 const registerSchema = z.object({
   email: z.string().trim().email().max(320),
@@ -18,8 +19,14 @@ export async function POST(request: Request) {
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   try {
-    const user = await prisma.user.create({
-      data: { email: parsed.data.email, emailNormalized, passwordHash, name: parsed.data.name },
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { email: parsed.data.email, emailNormalized, passwordHash, name: parsed.data.name },
+      });
+      await tx.subscription.create({
+        data: { userId: created.id, status: "TRIALING", trialEndsAt: trialEndsAtFrom() },
+      });
+      return created;
     });
 
     await createSession(user.id);

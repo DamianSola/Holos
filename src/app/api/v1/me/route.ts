@@ -26,6 +26,7 @@ export async function GET() {
       return {
         id: business.id,
         name: business.name,
+        kind: business.kind,
         role,
         customerCount,
         productCount,

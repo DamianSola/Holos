@@ -2,9 +2,12 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+type BusinessKind = "STORE" | "SERVICE";
+
 type BusinessSummary = {
   id: string;
   name: string;
+  kind: BusinessKind;
   role: "OWNER" | "EMPLOYEE";
   customerCount: number;
   productCount: number;
@@ -19,7 +22,7 @@ type Portfolio = {
   trend: Array<{ label: string; incomeMinor: number; expensesMinor: number; netMinor: number; current: boolean; incomeDeltaPercent: number | null; expensesDeltaPercent: number | null; netDeltaPercent: number | null }>;
 };
 
-const emptyForm = { name: "" };
+const emptyForm = { name: "", kind: "STORE" as BusinessKind };
 
 export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio }) {
   const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
@@ -56,7 +59,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
     const response = await fetch("/api/v1/businesses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.name.trim() }),
+      body: JSON.stringify({ name: form.name.trim(), kind: form.kind }),
     });
 
     if (!response.ok) {
@@ -96,7 +99,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
 
   return (
     <section className="module-page portfolio-page">
-      <p className="eyebrow">Portfolio overview</p>
+      <p className="eyebrow">Tablero general</p>
       <h1>Todos tus negocios</h1>
       <p className="module-description">Una vista consolidada de ingresos, gastos, operación y evolución de todos los negocios a los que tenés acceso.</p>
 
@@ -124,13 +127,20 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
         <div className="customer-form-heading">
           <div>
             <h2>Crear negocio</h2>
-            <p>Agregá un nuevo negocio y empezá a gestionarlo.</p>
+            <p>{form.kind === "SERVICE" ? "Vas a agendar servicios y cobrarlos con un presupuesto, sin catálogo ni stock." : "Vas a vender productos, con catálogo y stock."}</p>
           </div>
         </div>
         <div className="customer-form-grid">
           <label className="customer-form-wide">
             Nombre del negocio
-            <input value={form.name} onChange={(event) => setForm({ name: event.target.value })} maxLength={160} required />
+            <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} maxLength={160} required />
+          </label>
+          <label>
+            Qué tipo de negocio
+            <select value={form.kind} onChange={(event) => setForm((current) => ({ ...current, kind: event.target.value as BusinessKind }))}>
+              <option value="STORE">Venta de productos</option>
+              <option value="SERVICE">Servicios</option>
+            </select>
           </label>
         </div>
         <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Creando..." : "Crear negocio"}</button>
@@ -139,7 +149,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
       {error && <p className="form-error" role="alert">{error}</p>}
       {success && <p className="form-success" role="status">{success}</p>}
 
-      <div className="portfolio-section-heading"><div><p className="eyebrow">Business directory</p><h2>Mis negocios</h2></div><span className="panel-count">{totals.businesses} registrados</span></div>
+      <div className="portfolio-section-heading"><div><p className="eyebrow">Directorio</p><h2>Mis negocios</h2></div><span className="panel-count">{totals.businesses} registrados</span></div>
       {loading ? (
         <div className="module-state">Cargando negocios...</div>
       ) : businesses.length ? (
@@ -149,22 +159,23 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
               <div className="customer-card-header">
                 <div>
                   <strong>{business.name}</strong>
-                  <p>Rol: {business.role}</p>
+                  <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {business.kind === "SERVICE" ? "Servicios" : "Venta de productos"}</p>
                 </div>
-                <span className="customer-pill">{business.role}</span>
+                <span className="customer-pill">{business.kind === "SERVICE" ? "Servicios" : "Productos"}</span>
               </div>
 
               <div className="customer-contact">
                 <span>Clientes: {business.customerCount}</span>
-                <span>Productos: {business.productCount}</span>
-                <span>Stock crítico: {business.criticalProducts}</span>
+                {business.kind === "SERVICE" ? null : <span>Productos: {business.productCount}</span>}
+                {business.kind === "SERVICE" ? null : <span>Stock crítico: {business.criticalProducts}</span>}
               </div>
 
               <div className="customer-actions">
-                <a className="secondary-button" href="/">Dashboard general</a>
+                <a className="secondary-button" href="/">Tablero</a>
                 <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir negocio</a>
                 <a className="secondary-button" href={`/businesses/${business.id}/sales`}>Vender</a>
-                <a className="secondary-button" href={`/businesses/${business.id}/products`}>Productos</a>
+                <a className="secondary-button" href={`/businesses/${business.id}/orders`}>{business.kind === "SERVICE" ? "Reservas" : "Pedidos"}</a>
+                {business.kind === "SERVICE" ? null : <a className="secondary-button" href={`/businesses/${business.id}/products`}>Productos</a>}
                 <a className="secondary-button" href={`/businesses/${business.id}/customers`}>Clientes</a>
                 {business.role === "OWNER" && <><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button><button className="text-button" type="button" onClick={() => void archiveBusiness(business)}>Archivar</button></>}
                 <span className="customer-pill">Mes: {formatMoney(business.salesMonthMinor)}</span>

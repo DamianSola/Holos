@@ -1,68 +1,30 @@
+import type { Prisma } from "@prisma/client";
+import { fiscalProfileReady, internalReceipt } from "@/server/fiscal/document";
+import { requestInvoiceAuthorization, type StoredProfile } from "@/server/fiscal/wsfe";
+
+type Tx = Prisma.TransactionClient;
+
 type ArcaInvoiceInput = {
-  business: { id: string; name: string; taxId?: string | null; legalName?: string | null } | null;
-  customer: { id: string; name: string; email?: string | null; phone?: string | null } | null;
-  sale: { id: string; totalMinor: number; createdAt: Date; customerId?: string | null };
+  business: { id: string; name: string } | null;
+  customer: { name: string } | null;
+  sale: { id: string; totalMinor: number; createdAt: Date };
   items: Array<{ productName: string; quantity: number; unitPriceMinor: number; totalMinor: number }>;
 };
 
-export async function createArcaInvoice(input: ArcaInvoiceInput) {
-  const isEnabled = process.env.ARCA_MODE === "live" || process.env.ARCA_API_URL;
-
-  if (!isEnabled) {
-    const fallbackNumber = `ARCA-MOCK-${input.sale.id.slice(0, 8).toUpperCase()}`;
-    return {
-      number: fallbackNumber,
-      status: "MOCKED",
-      externalReference: `mock-${input.sale.id}`,
-      cae: "MOCK-CAE",
-      caeExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      metadata: {
-        provider: "ARCA_MOCK",
-        business: input.business?.name ?? "Sin nombre",
-        customer: input.customer?.name ?? "Consumidor final",
-        totalMinor: input.sale.totalMinor,
-      },
-    };
+export async function createArcaInvoice(tx: Tx, input: ArcaInvoiceInput) {
+  const businessId = input.business?.id;
+  const profile = businessId ? await tx.fiscalProfile.findUnique({ where: { businessId } }) : null;
+  if (profile && fiscalProfileReady(profile)) {
+    return requestInvoiceAuthorization(tx, profile as StoredProfile, input);
   }
-
-  const response = await fetch(process.env.ARCA_API_URL ?? "http://localhost:4000/arcas/invoice", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(process.env.ARCA_API_TOKEN ? { Authorization: `Bearer ${process.env.ARCA_API_TOKEN}` } : {}) },
-    body: JSON.stringify({
-      business: {
-        id: input.business?.id,
-        name: input.business?.name,
-        legalName: input.business?.legalName ?? input.business?.name,
-        taxId: input.business?.taxId ?? "00000000000",
-      },
-      customer: {
-        id: input.customer?.id,
-        name: input.customer?.name ?? "Consumidor final",
-        email: input.customer?.email ?? null,
-        phone: input.customer?.phone ?? null,
-      },
-      saleId: input.sale.id,
-      totalMinor: input.sale.totalMinor,
-      items: input.items.map((item) => ({
-        description: item.productName,
-        quantity: item.quantity,
-        unitPriceMinor: item.unitPriceMinor,
-        totalMinor: item.totalMinor,
-      })),
-    }),
+  if (!businessId) return internalReceipt(1, input.sale.id, input.sale.totalMinor);
+  const updated = await tx.business.update({
+    where: { id: businessId },
+    data: { receiptSeq: { increment: 1 } },
+    select: { receiptSeq: true },
   });
-
-  if (!response.ok) {
-    throw new Error("ARCA_INVOICE_FAILED");
-  }
-
-  const payload = await response.json().catch(() => null);
-  return {
-    number: payload?.number ?? `ARCA-${input.sale.id.slice(0, 8).toUpperCase()}`,
-    status: payload?.status ?? "EMITIDA",
-    externalReference: payload?.externalReference ?? input.sale.id,
-    cae: payload?.cae ?? null,
-    caeExpiry: payload?.caeExpiry ? new Date(payload.caeExpiry) : null,
-    metadata: payload ?? {},
-  };
+  return internalReceipt(updated.receiptSeq, input.sale.id, input.sale.totalMinor, {
+    business: input.business?.name,
+    customer: input.customer?.name ?? "Consumidor final",
+  });
 }

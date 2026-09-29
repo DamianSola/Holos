@@ -115,8 +115,8 @@ export function TeamPage({ businessId }: { businessId: string }) {
 
   return (
     <section className="module-page">
-      <p className="eyebrow">Administration</p>
-      <h1>Team</h1>
+      <p className="eyebrow">Administración</p>
+      <h1>Equipo</h1>
       <p className="module-description">Gestioná miembros, permisos y nuevas invitaciones para el negocio.</p>
 
       <div className="customer-summary">
@@ -142,7 +142,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
               Rol
               <select value={role} onChange={(event) => setRole(event.target.value as "OWNER" | "EMPLOYEE") }>
                 <option value="EMPLOYEE">Empleado</option>
-                <option value="OWNER">Owner</option>
+                <option value="OWNER">Dueño</option>
               </select>
             </label>
           </div>
@@ -176,7 +176,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
                     onChange={(event) => void updateRole(membership.id, event.target.value as "OWNER" | "EMPLOYEE")}
                     aria-label={`Cambiar rol de ${membership.user.name ?? membership.user.email}`}
                   >
-                    <option value="OWNER">Owner</option>
+                    <option value="OWNER">Dueño</option>
                     <option value="EMPLOYEE">Empleado</option>
                   </select>
                   <button className="text-button" type="button" onClick={() => void removeMember(membership.id)}>Quitar</button>

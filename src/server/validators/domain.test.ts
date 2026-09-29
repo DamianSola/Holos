@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { businessCreateSchema, customerSchema, customerUpdateSchema, expenseSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, productSchema, productUpdateSchema, saleSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
+import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, productSchema, productUpdateSchema, saleSchema, serviceSaleSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
 
 describe("domain input validation", () => {
   it("accepts a valid product with minor-unit pricing", () => {
@@ -43,14 +43,32 @@ describe("domain input validation", () => {
   });
 
   it("accepts business creation payloads and rejects empty names", () => {
-    expect(businessCreateSchema.safeParse({ name: "La Esquina" }).success).toBe(true);
-    expect(businessCreateSchema.safeParse({ name: "" }).success).toBe(false);
+    expect(businessCreateSchema.safeParse({ name: "La Esquina", kind: "STORE" }).success).toBe(true);
+    expect(businessCreateSchema.safeParse({ name: "Barra Norte", kind: "SERVICE" }).success).toBe(true);
+    expect(businessCreateSchema.safeParse({ name: "La Esquina" }).success).toBe(false);
+    expect(businessCreateSchema.safeParse({ name: "" , kind: "STORE" }).success).toBe(false);
   });
 
   it("accepts suppliers and positive expenses", () => {
     expect(supplierSchema.safeParse({ name: "Distribuidora Sur", type: "SUPPLY", email: "compras@test.com" }).success).toBe(true);
     expect(expenseSchema.safeParse({ description: "Compra de insumos", amountMinor: 1250000 }).success).toBe(true);
     expect(expenseSchema.safeParse({ description: "Compra", amountMinor: 0 }).success).toBe(false);
+  });
+
+  it("accepts a fiscal profile and rejects a short CUIT", () => {
+    expect(fiscalProfileSchema.safeParse({ legalName: "Casa Norte", cuit: "20111111112", pointOfSale: 1, ivaCondition: "MONOTRIBUTO", environment: "HOMOLOGACION" }).success).toBe(true);
+    expect(fiscalProfileSchema.safeParse({ legalName: "Casa Norte", cuit: "20", pointOfSale: 1, ivaCondition: "MONOTRIBUTO", environment: "HOMOLOGACION" }).success).toBe(false);
+  });
+
+  it("accepts a manual service sale and rejects one without a place", () => {
+    expect(serviceSaleSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", paymentMethod: "TRANSFER", serviceDate: "2026-11-02", amountMinor: 45000000, place: "Salón Norte", description: "Barra de tragos, 4 horas" }).success).toBe(true);
+    expect(serviceSaleSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", paymentMethod: "TRANSFER", serviceDate: "2026-11-02", amountMinor: 45000000, place: "", description: "Barra" }).success).toBe(false);
+  });
+
+  it("accepts a dated product order and rejects a service without a title", () => {
+    expect(customerOrderSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", title: "Remera", quantity: 2, scheduledFor: "2026-10-03" }).success).toBe(true);
+    expect(customerOrderSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "SERVICE", title: "Arreglo", scheduledFor: "2026-10-03" }).success).toBe(true);
+    expect(customerOrderSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "SERVICE", title: "", scheduledFor: "mañana" }).success).toBe(false);
   });
 
   it("accepts tasks with optional assignment and rejects empty titles", () => {

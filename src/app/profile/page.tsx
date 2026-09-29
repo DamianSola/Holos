@@ -9,7 +9,7 @@ export default async function ProfileRoute() {
 
   const membership = user.memberships[0];
   return (
-    <AppShell businessId={membership?.businessId ?? user.memberships[0]?.businessId ?? ""} userName={user.name ?? user.email}>
+    <AppShell businessId={membership?.businessId ?? user.memberships[0]?.businessId ?? ""} businessKind={membership?.business.kind ?? "STORE"} userName={user.name ?? user.email}>
       <ProfilePage />
     </AppShell>
   );

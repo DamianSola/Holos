@@ -78,7 +78,7 @@ export function ProfilePage() {
 
   return (
     <section className="module-page">
-      <p className="eyebrow">Account</p>
+      <p className="eyebrow">Cuenta</p>
       <h1>Perfil</h1>
       <p className="module-description">Actualizá tus datos personales y revisá los negocios a los que tenés acceso.</p>
 
@@ -123,9 +123,9 @@ export function ProfilePage() {
               <div className="customer-card-header">
                 <div>
                   <strong>{business.name}</strong>
-                  <p>Acceso como {business.role}</p>
+                  <p>Acceso como {business.role === "OWNER" ? "dueño" : "colaborador"}</p>
                 </div>
-                <span className="customer-pill">{business.role}</span>
+                <span className="customer-pill">{business.role === "OWNER" ? "Dueño" : "Colaborador"}</span>
               </div>
             </article>
           ))

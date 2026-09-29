@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
-import { saleSchema } from "@/server/validators/domain";
+import { saleSchema, serviceSaleSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string }> };
 
@@ -17,7 +17,48 @@ export async function POST(request: Request, context: Context) {
   const { businessId } = await context.params;
   const access = await authorizeBusiness(businessId);
   if ("response" in access) return access.response;
-  const parsed = saleSchema.safeParse(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  const business = await prisma.business.findFirst({ where: { id: businessId, deletedAt: null }, select: { kind: true } });
+  if (!business) return errorResponse(404, "BUSINESS_NOT_FOUND", "El negocio no existe.");
+
+  if (business.kind === "SERVICE") {
+    const parsed = serviceSaleSchema.safeParse(body);
+    if (!parsed.success) return errorResponse(400, "VALIDATION_ERROR", "Datos inválidos.", parsed.error.flatten());
+    try {
+      const sale = await prisma.$transaction(async (tx) => {
+        const customer = await tx.customer.findFirst({ where: { id: parsed.data.customerId, businessId, deletedAt: null } });
+        if (!customer) throw new Error("CUSTOMER_NOT_FOUND");
+        return tx.sale.create({
+          data: {
+            businessId,
+            customerId: customer.id,
+            createdById: access.user.id,
+            paymentMethod: parsed.data.paymentMethod,
+            subtotalMinor: parsed.data.amountMinor,
+            totalMinor: parsed.data.amountMinor,
+            serviceDate: new Date(`${parsed.data.serviceDate}T12:00:00`),
+            place: parsed.data.place,
+            description: parsed.data.description,
+            items: {
+              create: {
+                productName: parsed.data.description,
+                quantity: 1,
+                unitPriceMinor: parsed.data.amountMinor,
+                totalMinor: parsed.data.amountMinor,
+              },
+            },
+          },
+          include: { items: true, customer: true },
+        });
+      });
+      return Response.json(sale, { status: 201 });
+    } catch (error) {
+      if (error instanceof Error && error.message === "CUSTOMER_NOT_FOUND") return errorResponse(422, error.message, "El cliente no pertenece a este negocio.");
+      return unexpectedError();
+    }
+  }
+
+  const parsed = saleSchema.safeParse(body);
   if (!parsed.success) return errorResponse(400, "VALIDATION_ERROR", "Datos inválidos.", parsed.error.flatten());
 
   const uniqueProductIds = new Set(parsed.data.items.map((item) => item.productId));

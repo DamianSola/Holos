@@ -29,6 +29,7 @@ export const businessCreateSchema = z.object({
   name: z.string().trim().min(1).max(160),
   legalName: z.string().trim().max(160).optional(),
   taxId: z.string().trim().max(40).optional(),
+  kind: z.enum(["STORE", "SERVICE"]),
 }).strict();
 
 export const userProfileUpdateSchema = z.object({
@@ -64,6 +65,15 @@ export const inventoryAdjustmentSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 }).strict();
 
+export const serviceSaleSchema = z.object({
+  customerId: z.string().uuid(),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"]),
+  serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amountMinor: z.number().int().positive().max(2_147_483_647),
+  place: z.string().trim().min(1).max(160),
+  description: z.string().trim().min(1).max(2000),
+}).strict();
+
 export const saleSchema = z.object({
   customerId: z.string().uuid().optional(),
   paymentMethod: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"]),
@@ -72,6 +82,21 @@ export const saleSchema = z.object({
   const ids = sale.items.map((item) => item.productId);
   if (new Set(ids).size !== ids.length) context.addIssue({ code: "custom", path: ["items"], message: "Cada producto debe aparecer una sola vez." });
 });
+
+export const customerOrderSchema = z.object({
+  customerId: z.string().uuid(),
+  kind: z.enum(["PRODUCT", "SERVICE"]),
+  title: z.string().trim().min(1).max(160),
+  productId: z.string().uuid().optional(),
+  quantity: z.number().int().positive().max(100_000).default(1),
+  scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amountMinor: z.number().int().nonnegative().max(2_147_483_647).optional(),
+  notes: z.string().trim().max(1000).optional(),
+}).strict();
+
+export const customerOrderStatusSchema = z.object({
+  status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]),
+}).strict();
 
 export const supplierSchema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -105,3 +130,13 @@ export const taskUpdateSchema = z.object({
   assigneeId: z.string().uuid().optional(),
   dueDate: z.string().datetime().nullable().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Debe enviar al menos un cambio.");
+
+export const fiscalProfileSchema = z.object({
+  legalName: z.string().trim().min(1).max(160),
+  cuit: z.string().trim().min(11).max(20),
+  pointOfSale: z.number().int().min(1).max(9999),
+  ivaCondition: z.enum(["MONOTRIBUTO", "RESPONSABLE_INSCRIPTO"]),
+  environment: z.enum(["HOMOLOGACION", "PRODUCCION"]),
+  certificatePem: z.string().max(20000).optional(),
+  privateKeyPem: z.string().max(20000).optional(),
+}).strict();
