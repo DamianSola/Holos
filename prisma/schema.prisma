@@ -42,6 +42,12 @@ enum SaleStatus {
   CANCELLED
 }
 
+enum SaleDiscountKind {
+  NONE
+  PERCENT
+  PRICE
+}
+
 enum PaymentMethod {
   CASH
   TRANSFER
@@ -91,6 +97,7 @@ model User {
   emailNormalized String        @unique
   passwordHash    String
   name            String?
+  image           String?       @db.Text
   status          UserStatus    @default(ACTIVE)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -161,6 +168,7 @@ model Business {
   legalName   String?
   taxId       String?
   kind        BusinessKind @default(STORE)
+  image       String?      @db.Text
   receiptSeq  Int          @default(0)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -408,6 +416,8 @@ model Sale {
   paymentMethod PaymentMethod?
   subtotalMinor Int         @default(0)
   totalMinor    Int         @default(0)
+  discountKind  SaleDiscountKind @default(NONE)
+  discountPercentBps Int?
   serviceDate DateTime?
   place       String?
   description String?

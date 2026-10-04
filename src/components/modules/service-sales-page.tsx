@@ -1,18 +1,21 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
+import { applySaleDiscount } from "@/lib/sale-discount";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
 type Customer = { id: string; name: string };
 type Sale = {
   id: string;
   status: "DRAFT" | "CONFIRMED" | "CANCELLED";
+  subtotalMinor: number;
   totalMinor: number;
   serviceDate: string | null;
   place: string | null;
   description: string | null;
   customer: Customer | null;
-  invoice: { number: string; arcaStatus: string | null } | null;
+  invoice: { number: string; arcaStatus: string | null; cae: string | null } | null;
 };
 
 const paymentMethods = [
@@ -22,7 +25,7 @@ const paymentMethods = [
   { value: "OTHER", label: "Otro" },
 ];
 
-const emptyForm = { customerId: "", serviceDate: "", amount: "", place: "", description: "", paymentMethod: "TRANSFER" };
+const emptyForm = { customerId: "", serviceDate: "", amount: "", place: "", description: "", paymentMethod: "TRANSFER", discountKind: "NONE" as "NONE" | "PERCENT" | "PRICE", discountPercent: "", discountPrice: "" };
 
 export function ServiceSalesPage({ businessId }: { businessId: string }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -32,6 +35,7 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
 
   async function load() {
     setLoading(true);
@@ -73,6 +77,8 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
     return () => { cancelled = true; };
   }, [businessId]);
 
+  const visibleSales = useMemo(() => sales.filter((sale) => matchesQuery(query, sale.customer?.name, sale.place, sale.description, sale.invoice?.number, statusLabel(sale.status))), [sales, query]);
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -84,6 +90,10 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
       setSaving(false);
       return;
     }
+    const discount = serviceDiscount(form.discountKind, form.discountPercent, form.discountPrice);
+    if (discount === "invalid-percent") { setError("El porcentaje tiene que estar entre 0,01 y 100."); setSaving(false); return; }
+    if (discount === "invalid-price") { setError("Escribí el precio a cobrar."); setSaving(false); return; }
+    if (discount && discount.kind === "PRICE" && discount.priceMinor > amountMinor) { setError("El precio manual no puede superar el presupuesto."); setSaving(false); return; }
     const response = await fetch(`/api/v1/businesses/${businessId}/sales`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,6 +104,7 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
         amountMinor,
         place: form.place.trim(),
         description: form.description.trim(),
+        ...(discount ? { discount } : {}),
       }),
     });
     if (!response.ok) {
@@ -117,6 +128,30 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
     await load();
   }
 
+  async function deleteSale(saleId: string) {
+    const confirmed = window.confirm("¿Eliminar esta venta? Deja de sumar como ingreso.");
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    const response = await fetch(`/api/v1/businesses/${businessId}/sales/${saleId}`, { method: "DELETE" });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null) as { message?: string } | null;
+      setError(payload?.message ?? "No se pudo eliminar la venta.");
+      return;
+    }
+    setMessage("Venta eliminada.");
+    await load();
+  }
+
+  const quoteMinor = Math.round(Number(form.amount) * 100);
+  const preview = Number.isFinite(quoteMinor) && quoteMinor > 0
+    ? applySaleDiscount(quoteMinor, form.discountKind === "PERCENT" && Number(form.discountPercent) > 0
+      ? { kind: "PERCENT", percentBps: Math.min(10_000, Math.round(Number(form.discountPercent) * 100)) }
+      : form.discountKind === "PRICE" && form.discountPrice !== "" && Number(form.discountPrice) >= 0
+        ? { kind: "PRICE", priceMinor: Math.min(quoteMinor, Math.round(Number(form.discountPrice) * 100)) }
+        : { kind: "NONE" })
+    : null;
+
   return (
     <ModuleLayout eyebrow="Operación" title="Ventas" description="Cerrá el cobro de un servicio. El presupuesto entra como ingreso al confirmar, y la fecha queda anotada en el comprobante.">
       <form className="customer-form" onSubmit={(event) => void save(event)}>
@@ -139,6 +174,19 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
           <label>Presupuesto
             <input type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required />
           </label>
+          <label>Descuento
+            <select value={form.discountKind} onChange={(event) => setForm((current) => ({ ...current, discountKind: event.target.value as "NONE" | "PERCENT" | "PRICE" }))}>
+              <option value="NONE">Sin descuento</option>
+              <option value="PERCENT">Porcentaje</option>
+              <option value="PRICE">Precio manual</option>
+            </select>
+          </label>
+          {form.discountKind === "PERCENT" && <label>Porcentaje
+            <input type="number" min="0.01" max="100" step="0.01" value={form.discountPercent} onChange={(event) => setForm((current) => ({ ...current, discountPercent: event.target.value }))} placeholder="10" />
+          </label>}
+          {form.discountKind === "PRICE" && <label>Precio a cobrar
+            <input type="number" min="0" step="0.01" value={form.discountPrice} onChange={(event) => setForm((current) => ({ ...current, discountPrice: event.target.value }))} />
+          </label>}
           <label>Lugar
             <input value={form.place} onChange={(event) => setForm((current) => ({ ...current, place: event.target.value }))} required maxLength={160} placeholder="Salón, dirección, evento" />
           </label>
@@ -151,6 +199,7 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
             <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required maxLength={2000} rows={3} placeholder="Barra de tragos para 80 personas, 4 horas" />
           </label>
         </div>
+        {preview && preview.discountMinor > 0 && <p className="module-description">Se cobra {formatMoney(preview.totalMinor)} sobre un presupuesto de {formatMoney(quoteMinor)}.</p>}
         <button className="auth-submit" type="submit" disabled={saving || customers.length === 0}>{saving ? "Confirmando..." : "Confirmar venta"}</button>
         {customers.length === 0 && <p className="module-description">Primero cargá un cliente.</p>}
       </form>
@@ -164,9 +213,10 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
           </div>
           <span className="panel-count">{sales.length}</span>
         </div>
-        {loading ? <div className="module-state">Cargando...</div> : sales.length ? (
+        {sales.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Cliente, lugar o detalle" />}
+        {loading ? <div className="module-state">Cargando...</div> : sales.length === 0 ? <div className="module-state">Todavía no hay ventas. Cuando cobres un servicio, queda acá.</div> : visibleSales.length ? (
           <div className="sales-list">
-            {sales.map((sale) => (
+            {visibleSales.map((sale) => (
               <article className="sale-row" key={sale.id}>
                 <div>
                   <div className="sale-row-title">
@@ -178,13 +228,15 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
                 </div>
                 <div className="sale-row-total">
                   <strong>{formatMoney(sale.totalMinor)}</strong>
+                  {sale.subtotalMinor > sale.totalMinor && <small>Presupuesto {formatMoney(sale.subtotalMinor)}</small>}
                   {sale.status === "CONFIRMED" && <a className="text-button" href={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket`} target="_blank" rel="noreferrer">Imprimir</a>}
                   {sale.invoice && <small>{sale.invoice.number}</small>}
+                  {sale.invoice?.arcaStatus !== "AUTHORIZED" && <button className="text-button" type="button" onClick={() => void deleteSale(sale.id)}>Eliminar</button>}
                 </div>
               </article>
             ))}
           </div>
-        ) : <div className="module-state">Todavía no hay ventas. Cuando cobres un servicio, queda acá.</div>}
+        ) : <SearchMiss query={query} />}
       </section>
     </ModuleLayout>
   );
@@ -194,6 +246,18 @@ function statusLabel(status: Sale["status"]) {
   if (status === "CONFIRMED") return "Confirmada";
   if (status === "CANCELLED") return "Cancelada";
   return "Pendiente";
+}
+
+function serviceDiscount(kind: "NONE" | "PERCENT" | "PRICE", percent: string, price: string) {
+  if (kind === "NONE") return undefined;
+  if (kind === "PERCENT") {
+    const value = Number(percent);
+    if (!Number.isFinite(value) || value <= 0 || value > 100) return "invalid-percent" as const;
+    return { kind: "PERCENT" as const, percent: value };
+  }
+  const priceMinor = Math.round(Number(price) * 100);
+  if (!Number.isFinite(priceMinor) || price === "" || priceMinor < 0) return "invalid-price" as const;
+  return { kind: "PRICE" as const, priceMinor };
 }
 
 function formatMoney(valueMinor: number) {

@@ -1,3 +1,4 @@
+import { discountLabel } from "@/lib/sale-discount";
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
@@ -51,7 +52,19 @@ export async function POST(_request: Request, context: Context) {
           arcaStatus: arcaInvoice.status,
           externalRef: arcaInvoice.externalReference ?? null,
           metadata: arcaInvoice.metadata ?? null,
-          items: { create: sale.items.map((item) => ({ description: item.productName, quantity: item.quantity, unitPriceMinor: item.unitPriceMinor, totalMinor: item.totalMinor })) },
+          items: {
+            create: [
+              ...sale.items.map((item) => ({ description: item.productName, quantity: item.quantity, unitPriceMinor: item.unitPriceMinor, totalMinor: item.totalMinor })),
+              ...(sale.subtotalMinor > sale.totalMinor
+                ? [{
+                    description: discountLabel(sale.discountKind, sale.discountPercentBps) ?? "Descuento",
+                    quantity: 1,
+                    unitPriceMinor: sale.totalMinor - sale.subtotalMinor,
+                    totalMinor: sale.totalMinor - sale.subtotalMinor,
+                  }]
+                : []),
+            ],
+          },
         },
       });
 

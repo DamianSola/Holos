@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
 type Customer = { id: string; name: string };
@@ -33,6 +34,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState(() => blankOrder(serviceBusiness ? "SERVICE" : "PRODUCT"));
   const [filter, setFilter] = useState<OrderStatus>("SCHEDULED");
+  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -81,7 +83,8 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
     return () => { cancelled = true; };
   }, [businessId]);
 
-  const visible = useMemo(() => orders.filter((order) => order.status === filter), [orders, filter]);
+  const byStatus = useMemo(() => orders.filter((order) => order.status === filter), [orders, filter]);
+  const visible = useMemo(() => byStatus.filter((order) => matchesQuery(query, order.title, order.customer.name, order.notes, order.product?.name)), [byStatus, query]);
   const upcoming = orders.filter((order) => order.status === "SCHEDULED");
 
   function chooseProduct(productId: string) {
@@ -203,6 +206,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
         {customers.length === 0 && <p className="module-description">Primero cargá un cliente.</p>}
       </form>
       {error && <p className="form-error" role="alert">{error}</p>}
+      {orders.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Cliente o pedido" />}
       <div className="customer-actions">
         {(["SCHEDULED", "DONE", "CANCELLED"] as const).map((status) => (
           <button className={filter === status ? "auth-submit" : "secondary-button"} key={status} type="button" onClick={() => setFilter(status)}>{filterLabel(status)}</button>
@@ -232,7 +236,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
             </article>
           ))}
         </div>
-      ) : <div className="module-state">{emptyText(filter)}</div>}
+      ) : query.trim() ? <SearchMiss query={query} /> : <div className="module-state">{emptyText(filter)}</div>}
     </ModuleLayout>
   );
 }

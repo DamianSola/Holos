@@ -27,6 +27,7 @@ export async function GET() {
         id: business.id,
         name: business.name,
         kind: business.kind,
+        image: business.image,
         role,
         customerCount,
         productCount,
@@ -41,6 +42,7 @@ export async function GET() {
     id: user.id,
     email: user.email,
     name: user.name,
+    image: user.image,
     businesses,
     status: user.status,
   });
@@ -68,6 +70,7 @@ export async function PATCH(request: Request) {
   if (parsed.data.password !== undefined) {
     data.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   }
+  if (parsed.data.image !== undefined) data.image = parsed.data.image || null;
 
   if (Object.keys(data).length === 0) return errorResponse(400, "NO_CHANGES", "No se detectaron cambios.");
 
@@ -75,7 +78,7 @@ export async function PATCH(request: Request) {
     const updated = await prisma.user.update({
       where: { id: user.id },
       data,
-      select: { id: true, name: true, email: true, status: true },
+      select: { id: true, name: true, email: true, status: true, image: true },
     });
 
     return Response.json(updated);

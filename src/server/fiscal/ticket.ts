@@ -14,6 +14,8 @@ export type SaleTicketInput = {
   createdAt: Date;
   paymentMethod: string | null;
   totalMinor: number;
+  subtotalMinor?: number;
+  discountLabel?: string | null;
   businessName: string;
   legalName?: string | null;
   taxId?: string | null;
@@ -58,6 +60,7 @@ export function renderSaleTicket(input: SaleTicketInput) {
     <p class="muted">${escapeHtml(input.businessName)}${input.taxId ? `<br>CUIT ${escapeHtml(input.taxId)}` : ""}</p>
     <p>${escapeHtml(input.invoiceNumber)}<br>${escapeHtml(when)}<br>${escapeHtml(input.customerName)}<br>${escapeHtml(paymentLabels[input.paymentMethod ?? ""] ?? "Sin medio")}${detail}</p>
     <table>${rows}</table>
+    ${input.discountLabel && input.subtotalMinor !== undefined && input.subtotalMinor > input.totalMinor ? `<div class="total"><span>Subtotal</span><span>${money(input.subtotalMinor)}</span></div><div class="total"><span>${escapeHtml(input.discountLabel)}</span><span>-${money(input.subtotalMinor - input.totalMinor)}</span></div>` : ""}
     <div class="total"><span>Total</span><span>${money(input.totalMinor)}</span></div>
     ${fiscalBlock}
     <button type="button" onclick="window.print()">Imprimir</button>

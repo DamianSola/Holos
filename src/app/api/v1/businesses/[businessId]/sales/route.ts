@@ -1,7 +1,14 @@
+import { applySaleDiscount, type SaleDiscount } from "@/lib/sale-discount";
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
 import { saleSchema, serviceSaleSchema } from "@/server/validators/domain";
+
+function discountFromInput(input: { kind: "NONE" } | { kind: "PERCENT"; percent: number } | { kind: "PRICE"; priceMinor: number } | undefined): SaleDiscount {
+  if (!input || input.kind === "NONE") return { kind: "NONE" };
+  if (input.kind === "PERCENT") return { kind: "PERCENT", percentBps: Math.min(10_000, Math.max(0, Math.round(input.percent * 100))) };
+  return { kind: "PRICE", priceMinor: input.priceMinor };
+}
 
 type Context = { params: Promise<{ businessId: string }> };
 
@@ -28,6 +35,8 @@ export async function POST(request: Request, context: Context) {
       const sale = await prisma.$transaction(async (tx) => {
         const customer = await tx.customer.findFirst({ where: { id: parsed.data.customerId, businessId, deletedAt: null } });
         if (!customer) throw new Error("CUSTOMER_NOT_FOUND");
+        const discount = discountFromInput(parsed.data.discount);
+        const priced = applySaleDiscount(parsed.data.amountMinor, discount);
         return tx.sale.create({
           data: {
             businessId,
@@ -35,7 +44,9 @@ export async function POST(request: Request, context: Context) {
             createdById: access.user.id,
             paymentMethod: parsed.data.paymentMethod,
             subtotalMinor: parsed.data.amountMinor,
-            totalMinor: parsed.data.amountMinor,
+            totalMinor: priced.totalMinor,
+            discountKind: discount.kind,
+            discountPercentBps: discount.kind === "PERCENT" ? discount.percentBps : null,
             serviceDate: new Date(`${parsed.data.serviceDate}T12:00:00`),
             place: parsed.data.place,
             description: parsed.data.description,
@@ -54,6 +65,7 @@ export async function POST(request: Request, context: Context) {
       return Response.json(sale, { status: 201 });
     } catch (error) {
       if (error instanceof Error && error.message === "CUSTOMER_NOT_FOUND") return errorResponse(422, error.message, "El cliente no pertenece a este negocio.");
+      if (error instanceof Error && error.message === "PRICE_ABOVE_LIST") return errorResponse(422, error.message, "El precio manual no puede superar el presupuesto.");
       return unexpectedError();
     }
   }
@@ -75,11 +87,14 @@ export async function POST(request: Request, context: Context) {
         const product = products.find((candidate) => candidate.id === item.productId)!;
         return { productId: product.id, productName: product.name, quantity: item.quantity, unitPriceMinor: product.priceMinor, totalMinor: product.priceMinor * item.quantity };
       });
-      const totalMinor = items.reduce((total, item) => total + item.totalMinor, 0);
-      return tx.sale.create({ data: { businessId, customerId: parsed.data.customerId, createdById: access.user.id, paymentMethod: parsed.data.paymentMethod, subtotalMinor: totalMinor, totalMinor, items: { create: items } }, include: { items: true } });
+      const subtotalMinor = items.reduce((total, item) => total + item.totalMinor, 0);
+      const discount = discountFromInput(parsed.data.discount);
+      const priced = applySaleDiscount(subtotalMinor, discount);
+      return tx.sale.create({ data: { businessId, customerId: parsed.data.customerId, createdById: access.user.id, paymentMethod: parsed.data.paymentMethod, subtotalMinor, totalMinor: priced.totalMinor, discountKind: discount.kind, discountPercentBps: discount.kind === "PERCENT" ? discount.percentBps : null, items: { create: items } }, include: { items: true } });
     });
     return Response.json(sale, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "PRICE_ABOVE_LIST") return errorResponse(422, error.message, "El precio manual no puede superar el total de la lista.");
     if (error instanceof Error && ["PRODUCT_NOT_FOUND", "CUSTOMER_NOT_FOUND"].includes(error.message)) return errorResponse(422, error.message, "La venta contiene referencias inválidas.");
     return unexpectedError();
   }

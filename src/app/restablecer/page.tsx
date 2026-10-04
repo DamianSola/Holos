@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthPage } from "@/app/login/page";
+import { PasswordField } from "@/components/forms/account-fields";
 
 function ResetForm() {
   const token = useSearchParams().get("token") ?? "";
@@ -33,7 +34,7 @@ function ResetForm() {
 
   return (
     <AuthPage title="Elegí una contraseña nueva." description="Tiene que tener al menos 12 caracteres. Al guardarla, las sesiones anteriores se cierran." submitLabel={loading ? "Guardando..." : "Guardar contraseña"} error={error} notice={notice} onSubmit={onSubmit} footerHref="/login" footerLabel="Ir a ingresar">
-      <label>Contraseña nueva<input name="password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" /></label>
+      <PasswordField label="Contraseña nueva" name="password" required minLength={12} maxLength={128} autoComplete="new-password" />
     </AuthPage>
   );
 }

@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { fiscalQrUrl } from "@/server/fiscal/document";
+import { discountLabel } from "@/lib/sale-discount";
 import { renderSaleTicket } from "@/server/fiscal/ticket";
 import { errorResponse, unexpectedError } from "@/server/http";
 import { businessIdSchema } from "@/server/validators/domain";
@@ -43,6 +44,8 @@ export async function GET(_request: Request, context: Context) {
       createdAt: sale.confirmedAt ?? sale.createdAt,
       paymentMethod: sale.paymentMethod,
       totalMinor: sale.totalMinor,
+      subtotalMinor: sale.subtotalMinor,
+      discountLabel: discountLabel(sale.discountKind, sale.discountPercentBps),
       businessName: sale.business.name,
       legalName: sale.business.legalName,
       taxId: sale.business.taxId,

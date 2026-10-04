@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, productSchema, productUpdateSchema, saleSchema, serviceSaleSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
+import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, productSchema, productUpdateSchema, saleSchema, serviceSaleSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
 
 describe("domain input validation", () => {
   it("accepts a valid product with minor-unit pricing", () => {
@@ -13,6 +13,13 @@ describe("domain input validation", () => {
   it("rejects a sale with duplicate products", () => {
     const result = saleSchema.safeParse({ paymentMethod: "TRANSFER", items: [{ productId: "00000000-0000-0000-0000-000000000001", quantity: 1 }, { productId: "00000000-0000-0000-0000-000000000001", quantity: 2 }] });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts a sale discount by percent or by a manual price", () => {
+    const items = [{ productId: "00000000-0000-4000-8000-000000000001", quantity: 1 }];
+    expect(saleSchema.safeParse({ paymentMethod: "CASH", items, discount: { kind: "PERCENT", percent: 10 } }).success).toBe(true);
+    expect(saleSchema.safeParse({ paymentMethod: "CASH", items, discount: { kind: "PRICE", priceMinor: 150000 } }).success).toBe(true);
+    expect(saleSchema.safeParse({ paymentMethod: "CASH", items, discount: { kind: "PERCENT", percent: 120 } }).success).toBe(false);
   });
 
   it("requires a customer name", () => {
@@ -38,6 +45,8 @@ describe("domain input validation", () => {
 
   it("accepts valid user profile updates and rejects empty payloads", () => {
     expect(userProfileUpdateSchema.safeParse({ name: "María García", email: "maria@test.com" }).success).toBe(true);
+    expect(userProfileUpdateSchema.safeParse({ image: "data:image/jpeg;base64,aaaa" }).success).toBe(true);
+    expect(imageSchema.safeParse("data:text/plain;base64,aaaa").success).toBe(false);
     expect(userProfileUpdateSchema.safeParse({ password: "short" }).success).toBe(false);
     expect(userProfileUpdateSchema.safeParse({}).success).toBe(false);
   });

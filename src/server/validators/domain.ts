@@ -25,18 +25,26 @@ export const membershipRoleSchema = z.object({
   role: z.enum(["OWNER", "EMPLOYEE"]),
 }).strict();
 
+export const imageSchema = z.string().max(400_000).refine((value) => value === "" || /^data:image\/(jpeg|png|webp);base64,[a-z0-9+/=\s]+$/i.test(value), "La imagen no es válida.");
+
 export const businessCreateSchema = z.object({
   name: z.string().trim().min(1).max(160),
   legalName: z.string().trim().max(160).optional(),
   taxId: z.string().trim().max(40).optional(),
   kind: z.enum(["STORE", "SERVICE"]),
+  image: imageSchema.optional(),
+}).strict();
+
+export const businessImageSchema = z.object({
+  image: imageSchema,
 }).strict();
 
 export const userProfileUpdateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   email: z.string().trim().email().max(320).optional(),
   password: z.string().min(12).max(128).optional(),
-}).strict().refine((value) => value.name !== undefined || value.email !== undefined || value.password !== undefined, {
+  image: imageSchema.optional(),
+}).strict().refine((value) => value.name !== undefined || value.email !== undefined || value.password !== undefined || value.image !== undefined, {
   message: "Debe enviar al menos un campo para actualizar.",
 });
 
@@ -65,6 +73,12 @@ export const inventoryAdjustmentSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 }).strict();
 
+const saleDiscountSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("NONE") }).strict(),
+  z.object({ kind: z.literal("PERCENT"), percent: z.number().positive().max(100) }).strict(),
+  z.object({ kind: z.literal("PRICE"), priceMinor: z.number().int().nonnegative().max(2_147_483_647) }).strict(),
+]);
+
 export const serviceSaleSchema = z.object({
   customerId: z.string().uuid(),
   paymentMethod: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"]),
@@ -72,12 +86,14 @@ export const serviceSaleSchema = z.object({
   amountMinor: z.number().int().positive().max(2_147_483_647),
   place: z.string().trim().min(1).max(160),
   description: z.string().trim().min(1).max(2000),
+  discount: saleDiscountSchema.optional(),
 }).strict();
 
 export const saleSchema = z.object({
   customerId: z.string().uuid().optional(),
   paymentMethod: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"]),
   items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().positive().max(100_000) }).strict()).min(1).max(100),
+  discount: saleDiscountSchema.optional(),
 }).strict().superRefine((sale, context) => {
   const ids = sale.items.map((item) => item.productId);
   if (new Set(ids).size !== ids.length) context.addIssue({ code: "custom", path: ["items"], message: "Cada producto debe aparecer una sola vez." });

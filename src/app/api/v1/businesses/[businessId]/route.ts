@@ -1,8 +1,28 @@
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
+import { businessImageSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string }> };
+
+export async function PATCH(request: Request, context: Context) {
+  const { businessId } = await context.params;
+  const access = await authorizeBusiness(businessId, ["OWNER"]);
+  if ("response" in access) return access.response;
+  const parsed = businessImageSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return errorResponse(400, "VALIDATION_ERROR", "La imagen no es válida.", parsed.error.flatten());
+  try {
+    const updated = await prisma.business.updateMany({
+      where: { id: businessId, deletedAt: null },
+      data: { image: parsed.data.image || null },
+    });
+    if (updated.count !== 1) return errorResponse(404, "BUSINESS_NOT_FOUND", "El negocio no existe.");
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return unexpectedError();
+  }
+}
 
 export async function DELETE(_request: Request, context: Context) {
   const { businessId } = await context.params;

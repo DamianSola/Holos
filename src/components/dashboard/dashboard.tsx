@@ -1,9 +1,9 @@
 import { getBusinessDashboard } from "@/server/services/dashboard";
 import { TasksPanel } from "@/components/dashboard/tasks-panel";
 
-type DashboardProps = { businessId: string; businessName: string };
+type DashboardProps = { businessId: string; businessName: string; businessImage?: string | null };
 
-export async function Dashboard({ businessId, businessName }: DashboardProps) {
+export async function Dashboard({ businessId, businessName, businessImage }: DashboardProps) {
   const data = await getBusinessDashboard(businessId);
   const service = data.business?.kind === "SERVICE";
 
@@ -12,7 +12,7 @@ export async function Dashboard({ businessId, businessName }: DashboardProps) {
       <section className="dashboard-intro">
         <div>
           <p className="eyebrow">Este negocio</p>
-          <h1>{businessName}</h1>
+          <div className="identity-line">{businessImage ? <img className="business-logo" src={businessImage} alt="" /> : null}<h1>{businessName}</h1></div>
           <p className="intro-copy">Una visión conectada de tu negocio, con cada operación reflejada en el resto del sistema.</p>
         </div>
         <span className="phase-badge">Negocio activo</span>

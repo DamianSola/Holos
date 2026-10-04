@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HolosLogo } from "@/components/brand/holos-logo";
@@ -18,7 +18,23 @@ export function Header({ onMenuClick, userName, businessId, businessKind = "STOR
   const pathname = usePathname();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
+  const [userImage, setUserImage] = useState("");
+  const [businesses, setBusinesses] = useState<Array<{ id: string; name: string; image?: string | null }>>([]);
   const section = sectionLabel(pathname, businessKind);
+  const businessMatch = pathname.match(/^\/businesses\/([^/]+)/);
+  const currentBusiness = businessMatch ? businesses.find((business) => business.id === businessMatch[1]) : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/v1/me", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok || cancelled) return;
+      const data = await response.json() as { image?: string | null; businesses?: Array<{ id: string; name: string; image?: string | null }> };
+      if (cancelled) return;
+      setUserImage(data.image ?? "");
+      setBusinesses(data.businesses ?? []);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   async function logout() {
     setLoggingOut(true);
@@ -35,6 +51,7 @@ export function Header({ onMenuClick, userName, businessId, businessKind = "STOR
         <Link className="topbar-mark" href="/" aria-label="Ir al tablero">
           <HolosLogo variant="mark" />
         </Link>
+        {currentBusiness?.image ? <img className="business-logo" src={currentBusiness.image} alt={currentBusiness.name} /> : null}
         <div className="breadcrumbs" aria-label="Ubicación">
           {section === "Tablero" ? <strong>Tablero</strong> : <><Link href="/">Tablero</Link><span aria-hidden="true">/</span><strong>{section}</strong></>}
         </div>
@@ -44,7 +61,7 @@ export function Header({ onMenuClick, userName, businessId, businessKind = "STOR
         <NotificationBell businessId={businessId} />
         <div className="user-menu">
           <button className="current-user" type="button" aria-expanded={isUserMenuOpen} aria-haspopup="menu" aria-label="Abrir menú de usuario" onClick={() => setUserMenuOpen((value) => !value)}>
-            <span className="avatar" aria-hidden="true">{initials(userName)}</span>
+            <span className="avatar" aria-hidden="true">{userImage ? <img src={userImage} alt="" /> : initials(userName)}</span>
             <span className="current-user-copy">
               <strong>{userName}</strong>
               <small>Sesión activa</small>

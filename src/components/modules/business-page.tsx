@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ImagePicker } from "@/components/forms/account-fields";
 
 type BusinessKind = "STORE" | "SERVICE";
 
@@ -8,6 +9,7 @@ type BusinessSummary = {
   id: string;
   name: string;
   kind: BusinessKind;
+  image: string | null;
   role: "OWNER" | "EMPLOYEE";
   customerCount: number;
   productCount: number;
@@ -22,7 +24,7 @@ type Portfolio = {
   trend: Array<{ label: string; incomeMinor: number; expensesMinor: number; netMinor: number; current: boolean; incomeDeltaPercent: number | null; expensesDeltaPercent: number | null; netDeltaPercent: number | null }>;
 };
 
-const emptyForm = { name: "", kind: "STORE" as BusinessKind };
+const emptyForm = { name: "", kind: "STORE" as BusinessKind, image: "" };
 
 export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio }) {
   const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
@@ -59,7 +61,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
     const response = await fetch("/api/v1/businesses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.name.trim(), kind: form.kind }),
+      body: JSON.stringify({ name: form.name.trim(), kind: form.kind, ...(form.image ? { image: form.image } : {}) }),
     });
 
     if (!response.ok) {
@@ -72,6 +74,23 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
     setForm(emptyForm);
     setSuccess("Negocio creado correctamente.");
     setSaving(false);
+    await load();
+  }
+
+  async function updateBusinessImage(businessId: string, image: string) {
+    setError("");
+    setSuccess("");
+    const response = await fetch(`/api/v1/businesses/${businessId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image }),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      setError(payload?.message ?? "No se pudo actualizar la imagen del negocio.");
+      return;
+    }
+    setSuccess("Imagen del negocio actualizada.");
     await load();
   }
 
@@ -142,6 +161,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
               <option value="SERVICE">Servicios</option>
             </select>
           </label>
+          <ImagePicker label="Imagen del negocio" value={form.image} onChange={(image) => setForm((current) => ({ ...current, image }))} />
         </div>
         <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Creando..." : "Crear negocio"}</button>
       </form>
@@ -157,9 +177,11 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
           {businesses.map((business) => (
             <article className="customer-card" key={business.id}>
               <div className="customer-card-header">
-                <div>
-                  <strong>{business.name}</strong>
-                  <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {business.kind === "SERVICE" ? "Servicios" : "Venta de productos"}</p>
+                <div className="identity-line">
+                  <div>
+                    <strong>{business.name}</strong>
+                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {business.kind === "SERVICE" ? "Servicios" : "Venta de productos"}</p>
+                  </div>
                 </div>
                 <span className="customer-pill">{business.kind === "SERVICE" ? "Servicios" : "Productos"}</span>
               </div>
@@ -177,6 +199,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
                 <a className="secondary-button" href={`/businesses/${business.id}/orders`}>{business.kind === "SERVICE" ? "Reservas" : "Pedidos"}</a>
                 {business.kind === "SERVICE" ? null : <a className="secondary-button" href={`/businesses/${business.id}/products`}>Productos</a>}
                 <a className="secondary-button" href={`/businesses/${business.id}/customers`}>Clientes</a>
+                {business.role === "OWNER" && <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />}
                 {business.role === "OWNER" && <><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button><button className="text-button" type="button" onClick={() => void archiveBusiness(business)}>Archivar</button></>}
                 <span className="customer-pill">Mes: {formatMoney(business.salesMonthMinor)}</span>
                 <span className="customer-pill">Hoy: {formatMoney(business.salesTodayMinor)}</span>

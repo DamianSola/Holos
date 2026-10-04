@@ -10,7 +10,7 @@ export default async function BusinessOverviewRoute({ params }: { params: Promis
 
   return (
     <AppShell businessId={businessId} businessKind={membership.business.kind} userName={user.name ?? user.email}>
-      <Dashboard businessId={businessId} businessName={membership.business.name} />
+      <Dashboard businessId={businessId} businessName={membership.business.name} businessImage={membership.business.image} />
     </AppShell>
   );
 }

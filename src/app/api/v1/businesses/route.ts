@@ -20,6 +20,7 @@ export async function GET() {
     id: membership.businessId,
     name: membership.business.name,
     kind: membership.business.kind,
+    image: membership.business.image,
     role: membership.role,
   })) });
 }
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
           legalName: parsed.data.legalName?.trim() || null,
           taxId: parsed.data.taxId?.trim() || null,
           kind: parsed.data.kind,
+          image: parsed.data.image || null,
         },
       });
 

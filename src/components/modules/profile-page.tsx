@@ -1,18 +1,20 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { ImagePicker, PasswordField } from "@/components/forms/account-fields";
 
 type Profile = {
   id: string;
   name: string | null;
   email: string;
   status: "ACTIVE" | "SUSPENDED";
-  businesses: Array<{ id: string; name: string; role: "OWNER" | "EMPLOYEE" }>;
+  image: string | null;
+  businesses: Array<{ id: string; name: string; role: "OWNER" | "EMPLOYEE"; image: string | null }>;
 };
 
 export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", image: "" });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,7 +31,7 @@ export function ProfilePage() {
 
     const data = await response.json();
     setProfile(data);
-    setForm({ name: data.name ?? "", email: data.email ?? "", password: "" });
+    setForm({ name: data.name ?? "", email: data.email ?? "", password: "", image: data.image ?? "" });
     setLoading(false);
   }
 
@@ -47,6 +49,7 @@ export function ProfilePage() {
     if (form.name.trim() && form.name.trim() !== (profile?.name ?? "")) payload.name = form.name.trim();
     if (form.email.trim().toLowerCase() !== (profile?.email ?? "").toLowerCase()) payload.email = form.email.trim().toLowerCase();
     if (form.password.trim()) payload.password = form.password.trim();
+    if (form.image !== (profile?.image ?? "")) payload.image = form.image;
 
     if (Object.keys(payload).length === 0) {
       setSuccess("No hubo cambios para guardar.");
@@ -104,10 +107,8 @@ export function ProfilePage() {
             Email
             <input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} maxLength={320} />
           </label>
-          <label>
-            Nueva contraseña
-            <input type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} minLength={12} maxLength={128} placeholder="Opcional" />
-          </label>
+          <PasswordField label="Nueva contraseña" value={form.password} onChange={(password) => setForm((current) => ({ ...current, password }))} minLength={12} maxLength={128} placeholder="Opcional" />
+          <ImagePicker label="Foto de perfil" value={form.image} onChange={(image) => setForm((current) => ({ ...current, image }))} />
         </div>
         <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</button>
       </form>
@@ -121,9 +122,11 @@ export function ProfilePage() {
           profile.businesses.map((business) => (
             <article className="customer-card" key={business.id}>
               <div className="customer-card-header">
-                <div>
-                  <strong>{business.name}</strong>
-                  <p>Acceso como {business.role === "OWNER" ? "dueño" : "colaborador"}</p>
+                <div className="identity-line">
+                  <div>
+                    <strong>{business.name}</strong>
+                    <p>Acceso como {business.role === "OWNER" ? "dueño" : "colaborador"}</p>
+                  </div>
                 </div>
                 <span className="customer-pill">{business.role === "OWNER" ? "Dueño" : "Colaborador"}</span>
               </div>

@@ -3,6 +3,7 @@
 import { FormEvent, ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HolosLogo } from "@/components/brand/holos-logo";
+import { ImagePicker, PasswordField } from "@/components/forms/account-fields";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export default function LoginPage() {
@@ -46,9 +47,10 @@ export function AuthPage({ title, description, submitLabel, error, onSubmit, foo
         <p className="auth-description">{description}</p>
         <form className="auth-form" onSubmit={onSubmit}>
           {children ?? <>
+            {register && <ImagePicker name="image" label="Foto de perfil" />}
             {register && <label>Nombre<input name="name" required maxLength={120} autoComplete="name" /></label>}
             <label>Email<input name="email" type="email" required maxLength={320} autoComplete="email" /></label>
-            <label>Contraseña<input name="password" type="password" required minLength={12} maxLength={128} autoComplete={register ? "new-password" : "current-password"} /></label>
+            <PasswordField label="Contraseña" name="password" required minLength={12} maxLength={128} autoComplete={register ? "new-password" : "current-password"} />
           </>}
           {notice && <p className="form-success" role="status">{notice}</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
