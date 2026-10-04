@@ -59,6 +59,7 @@ export async function GET(_request: Request, context: Context) {
       cae: sale.invoice.cae,
       caeExpiry: sale.invoice.caeExpiry,
       qrDataUrl,
+      businessImage: sale.business.image,
     });
     return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   } catch {

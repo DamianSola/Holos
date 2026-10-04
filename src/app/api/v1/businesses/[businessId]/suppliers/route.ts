@@ -12,7 +12,7 @@ export async function GET(_request: Request, context: Context) {
 
   const suppliers = await prisma.supplier.findMany({
     where: { businessId, deletedAt: null },
-    include: { _count: { select: { expenses: true } } },
+    include: { _count: { select: { expenses: { where: { deletedAt: null } } } } },
     orderBy: { name: "asc" },
   });
   return Response.json({ items: suppliers });

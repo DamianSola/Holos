@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { applySaleDiscount } from "@/lib/sale-discount";
 import { ModuleLayout } from "@/components/modules/customers-page";
@@ -36,6 +36,7 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const savingRef = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -81,51 +82,58 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
+    if (savingRef.current) return;
     setMessage("");
     setError("");
     const amountMinor = Math.round(Number(form.amount) * 100);
     if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
       setError("El presupuesto tiene que ser mayor a cero.");
-      setSaving(false);
       return;
     }
     const discount = serviceDiscount(form.discountKind, form.discountPercent, form.discountPrice);
-    if (discount === "invalid-percent") { setError("El porcentaje tiene que estar entre 0,01 y 100."); setSaving(false); return; }
-    if (discount === "invalid-price") { setError("Escribí el precio a cobrar."); setSaving(false); return; }
-    if (discount && discount.kind === "PRICE" && discount.priceMinor > amountMinor) { setError("El precio manual no puede superar el presupuesto."); setSaving(false); return; }
-    const response = await fetch(`/api/v1/businesses/${businessId}/sales`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customerId: form.customerId,
-        paymentMethod: form.paymentMethod,
-        serviceDate: form.serviceDate,
-        amountMinor,
-        place: form.place.trim(),
-        description: form.description.trim(),
-        ...(discount ? { discount } : {}),
-      }),
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null) as { message?: string } | null;
-      setError(payload?.message ?? "No se pudo crear la venta.");
+    if (discount === "invalid-percent") { setError("El porcentaje tiene que estar entre 0,01 y 100."); return; }
+    if (discount === "invalid-price") { setError("Escribí el precio a cobrar."); return; }
+    if (discount && discount.kind === "PRICE" && discount.priceMinor > amountMinor) { setError("El precio manual no puede superar el presupuesto."); return; }
+    const customer = customers.find((item) => item.id === form.customerId) ?? null;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/v1/businesses/${businessId}/sales`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: form.customerId,
+          paymentMethod: form.paymentMethod,
+          serviceDate: form.serviceDate,
+          amountMinor,
+          place: form.place.trim(),
+          description: form.description.trim(),
+          ...(discount ? { discount } : {}),
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { message?: string } | null;
+        setError(payload?.message ?? "No se pudo crear la venta.");
+        return;
+      }
+      const created = await response.json() as Sale;
+      const confirmation = await fetch(`/api/v1/businesses/${businessId}/sales/${created.id}/confirm`, { method: "POST" });
+      const confirmed = await confirmation.json().catch(() => null) as { message?: string; invoice?: { number: string; arcaStatus?: string | null; cae?: string | null } | null } | null;
+      if (!confirmation.ok) {
+        setError(confirmed?.message ?? "No se pudo confirmar la venta.");
+        setSales((current) => current.some((item) => item.id === created.id) ? current : [{ ...created, customer: created.customer ?? customer }, ...current]);
+        return;
+      }
+      const invoice = confirmed?.invoice
+        ? { number: confirmed.invoice.number, arcaStatus: confirmed.invoice.arcaStatus ?? null, cae: confirmed.invoice.cae ?? null }
+        : null;
+      setSales((current) => [{ ...created, customer: created.customer ?? customer, status: "CONFIRMED", invoice }, ...current.filter((item) => item.id !== created.id)]);
+      setForm(emptyForm);
+      setMessage(invoice?.arcaStatus === "AUTHORIZED" ? "Venta confirmada. La factura con CAE está lista para imprimir." : "Venta confirmada. El comprobante de este servicio está listo para imprimir.");
+    } finally {
+      savingRef.current = false;
       setSaving(false);
-      return;
     }
-    const sale = await response.json() as { id: string };
-    const confirmation = await fetch(`/api/v1/businesses/${businessId}/sales/${sale.id}/confirm`, { method: "POST" });
-    const confirmed = await confirmation.json().catch(() => null) as { message?: string; invoice?: { arcaStatus?: string } } | null;
-    if (!confirmation.ok) {
-      setError(confirmed?.message ?? "No se pudo confirmar la venta.");
-      setSaving(false);
-      await load();
-      return;
-    }
-    setForm(emptyForm);
-    setSaving(false);
-    setMessage(confirmed?.invoice?.arcaStatus === "AUTHORIZED" ? "Venta confirmada. La factura con CAE está lista para imprimir." : "Venta confirmada. El comprobante de este servicio está listo para imprimir.");
-    await load();
   }
 
   async function deleteSale(saleId: string) {
@@ -163,40 +171,40 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
         </div>
         <div className="customer-form-grid">
           <label>Cliente
-            <select value={form.customerId} onChange={(event) => setForm((current) => ({ ...current, customerId: event.target.value }))} required>
+            <select disabled={saving} value={form.customerId} onChange={(event) => setForm((current) => ({ ...current, customerId: event.target.value }))} required>
               <option value="">Elegir cliente</option>
               {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
             </select>
           </label>
           <label>Fecha del servicio
-            <input type="date" value={form.serviceDate} onChange={(event) => setForm((current) => ({ ...current, serviceDate: event.target.value }))} required />
+            <input disabled={saving} type="date" value={form.serviceDate} onChange={(event) => setForm((current) => ({ ...current, serviceDate: event.target.value }))} required />
           </label>
           <label>Presupuesto
-            <input type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required />
+            <input disabled={saving} type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required />
           </label>
           <label>Descuento
-            <select value={form.discountKind} onChange={(event) => setForm((current) => ({ ...current, discountKind: event.target.value as "NONE" | "PERCENT" | "PRICE" }))}>
+            <select disabled={saving} value={form.discountKind} onChange={(event) => setForm((current) => ({ ...current, discountKind: event.target.value as "NONE" | "PERCENT" | "PRICE" }))}>
               <option value="NONE">Sin descuento</option>
               <option value="PERCENT">Porcentaje</option>
               <option value="PRICE">Precio manual</option>
             </select>
           </label>
           {form.discountKind === "PERCENT" && <label>Porcentaje
-            <input type="number" min="0.01" max="100" step="0.01" value={form.discountPercent} onChange={(event) => setForm((current) => ({ ...current, discountPercent: event.target.value }))} placeholder="10" />
+            <input disabled={saving} type="number" min="0.01" max="100" step="0.01" value={form.discountPercent} onChange={(event) => setForm((current) => ({ ...current, discountPercent: event.target.value }))} placeholder="10" />
           </label>}
           {form.discountKind === "PRICE" && <label>Precio a cobrar
-            <input type="number" min="0" step="0.01" value={form.discountPrice} onChange={(event) => setForm((current) => ({ ...current, discountPrice: event.target.value }))} />
+            <input disabled={saving} type="number" min="0" step="0.01" value={form.discountPrice} onChange={(event) => setForm((current) => ({ ...current, discountPrice: event.target.value }))} />
           </label>}
           <label>Lugar
-            <input value={form.place} onChange={(event) => setForm((current) => ({ ...current, place: event.target.value }))} required maxLength={160} placeholder="Salón, dirección, evento" />
+            <input disabled={saving} value={form.place} onChange={(event) => setForm((current) => ({ ...current, place: event.target.value }))} required maxLength={160} placeholder="Salón, dirección, evento" />
           </label>
           <label>Medio de pago
-            <select value={form.paymentMethod} onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))}>
+            <select disabled={saving} value={form.paymentMethod} onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))}>
               {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
             </select>
           </label>
           <label className="customer-form-wide">Qué incluye
-            <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required maxLength={2000} rows={3} placeholder="Barra de tragos para 80 personas, 4 horas" />
+            <textarea disabled={saving} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required maxLength={2000} rows={3} placeholder="Barra de tragos para 80 personas, 4 horas" />
           </label>
         </div>
         {preview && preview.discountMinor > 0 && <p className="module-description">Se cobra {formatMoney(preview.totalMinor)} sobre un presupuesto de {formatMoney(quoteMinor)}.</p>}

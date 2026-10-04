@@ -96,8 +96,30 @@ describe("sale ticket", () => {
     expect(html).toContain("Comprobante interno");
     expect(html).toContain("Remera");
     expect(html).toContain("Ana");
+    expect(html).toContain('class="logo holos"');
+    expect(html).toContain('alt="Holos"');
+    expect(html).toContain("/brand/holos-logo.svg");
+    expect(html.indexOf("/brand/holos-logo.svg")).toBeLessThan(html.indexOf("Casa Norte SAS"));
+    expect(html).not.toContain('class="logo business"');
     expect(html).not.toContain("MOCK-CAE");
     expect(html).not.toContain("CAE");
+    const blankLogo = renderSaleTicket({ ...sale, invoiceNumber: "T-00000-00000004", fiscal: false, businessImage: "   " });
+    expect(blankLogo).toContain("/brand/holos-logo.svg");
+    expect(blankLogo).not.toContain('class="logo business"');
+  });
+
+  it("prints the business logo when the business has an image", () => {
+    const html = renderSaleTicket({
+      ...sale,
+      invoiceNumber: "T-00000-00000005",
+      fiscal: false,
+      businessImage: "data:image/png;base64,logo&raw",
+    });
+    expect(html).toContain("/brand/holos-logo.svg");
+    expect(html).toContain('class="logo business"');
+    expect(html).toContain("data:image/png;base64,logo&amp;raw");
+    expect(html.indexOf('class="logo business"')).toBeLessThan(html.indexOf("Casa Norte SAS"));
+    expect(html.indexOf("CUIT")).toBeLessThan(html.indexOf("Comprobante interno"));
   });
 
   it("prints the real CAE when ARCA authorized the invoice", () => {
@@ -109,8 +131,12 @@ describe("sale ticket", () => {
       caeExpiry: new Date("2026-10-09T02:59:59.000Z"),
       qrDataUrl: "data:image/png;base64,abc",
     });
+    expect(html).toContain("/brand/holos-logo.svg");
     expect(html).toContain("12345678901234");
+    expect(html).toContain('class="qr"');
     expect(html).toContain("data:image/png;base64,abc");
+    expect(html.indexOf("CAE")).toBeLessThan(html.indexOf("data:image/png;base64,abc"));
+    expect(html).not.toContain('class="logo business"');
     expect(html).not.toContain("Comprobante interno");
   });
 });

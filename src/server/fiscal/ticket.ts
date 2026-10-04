@@ -29,6 +29,7 @@ export type SaleTicketInput = {
   cae?: string | null;
   caeExpiry?: Date | null;
   qrDataUrl?: string | null;
+  businessImage?: string | null;
 };
 
 export function renderSaleTicket(input: SaleTicketInput) {
@@ -36,8 +37,12 @@ export function renderSaleTicket(input: SaleTicketInput) {
   const serviceWhen = input.serviceDate ? new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeZone: "America/Argentina/Buenos_Aires" }).format(input.serviceDate) : "";
   const detail = [serviceWhen && `Servicio ${serviceWhen}`, input.place && `Lugar ${input.place}`, input.description].filter(Boolean).map((line) => `<br>${escapeHtml(line)}`).join("");
   const rows = input.items.map((item) => `<tr><td>${escapeHtml(item.productName)}${item.quantity > 1 ? `<br><span>x${item.quantity}</span>` : ""}</td><td>${money(item.totalMinor)}</td></tr>`).join("");
+  const businessImage = input.businessImage?.trim() ?? "";
+  const businessLogo = businessImage
+    ? `<img class="logo business" alt="${escapeHtml(input.businessName)}" src="${escapeHtml(businessImage)}">`
+    : "";
   const fiscalBlock = input.fiscal && input.cae
-    ? `<p class="cae">CAE ${escapeHtml(input.cae)}</p><p>Vence ${escapeHtml(input.caeExpiry ? new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(input.caeExpiry) : "")}</p>${input.qrDataUrl ? `<img alt="Código QR de ARCA" src="${escapeHtml(input.qrDataUrl)}">` : ""}`
+    ? `<p class="cae">CAE ${escapeHtml(input.cae)}</p><p>Vence ${escapeHtml(input.caeExpiry ? new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(input.caeExpiry) : "")}</p>${input.qrDataUrl ? `<img class="qr" alt="Código QR de ARCA" src="${escapeHtml(input.qrDataUrl)}">` : ""}`
     : `<p class="banner">Comprobante interno. No es una factura fiscal.</p>`;
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(input.invoiceNumber)}</title><style>
@@ -52,10 +57,13 @@ export function renderSaleTicket(input: SaleTicketInput) {
     .total{display:flex;justify-content:space-between;margin-top:8px;font-size:16px;font-weight:700}
     .banner{margin-top:14px;padding:8px;border:1px solid #1c1915}
     .cae{font-weight:700;letter-spacing:.04em}
-    img{display:block;width:140px;height:140px;margin:8px auto 0}
+    .logos{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
+    .logo{display:block;height:32px;width:auto;max-width:46%;object-fit:contain}
+    .qr{display:block;width:140px;height:140px;margin:8px auto 0}
     button{margin-top:16px;width:100%;height:40px}
-    @media print{body{background:#fff}main{margin:0}button{display:none}}
+    @media print{body{background:#fff}main{margin:0}button{display:none}.logo,.qr{display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body><main>
+    <div class="logos"><img class="logo holos" alt="Holos" src="/brand/holos-logo.svg">${businessLogo}</div>
     <h1>${escapeHtml(input.legalName || input.businessName)}</h1>
     <p class="muted">${escapeHtml(input.businessName)}${input.taxId ? `<br>CUIT ${escapeHtml(input.taxId)}` : ""}</p>
     <p>${escapeHtml(input.invoiceNumber)}<br>${escapeHtml(when)}<br>${escapeHtml(input.customerName)}<br>${escapeHtml(paymentLabels[input.paymentMethod ?? ""] ?? "Sin medio")}${detail}</p>
@@ -64,7 +72,7 @@ export function renderSaleTicket(input: SaleTicketInput) {
     <div class="total"><span>Total</span><span>${money(input.totalMinor)}</span></div>
     ${fiscalBlock}
     <button type="button" onclick="window.print()">Imprimir</button>
-  </main><script>window.addEventListener("load",()=>window.print())</script></body></html>`;
+  </main><script>(function(){function printTicket(){Promise.all([...document.images].map((img)=>img.decode?img.decode().catch(()=>{}):Promise.resolve())).then(()=>window.print())}if(document.readyState==="complete")printTicket();else window.addEventListener("load",printTicket)})()</script></body></html>`;
 }
 
 function money(minor: number) {
