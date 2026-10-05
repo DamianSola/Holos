@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormModal } from "@/components/forms/form-modal";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
@@ -38,6 +39,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -130,6 +132,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
     }
     setForm(blankOrder(serviceBusiness ? "SERVICE" : "PRODUCT"));
     setFilter("SCHEDULED");
+    setFormOpen(false);
     setSaving(false);
     await load();
   }
@@ -154,6 +157,8 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
         {serviceBusiness ? null : <div className="summary-card"><span>Productos</span><strong>{upcoming.filter((order) => order.kind === "PRODUCT").length}</strong></div>}
         <div className="summary-card"><span>Servicios</span><strong>{upcoming.filter((order) => order.kind === "SERVICE").length}</strong></div>
       </div>
+      <div className="customer-actions"><button className="auth-submit" type="button" onClick={() => { setError(""); setFormOpen(true); }}>Nuevo pedido</button></div>
+      {formOpen && <FormModal title="Nuevo pedido" onClose={() => setFormOpen(false)}>
       <form className="customer-form" onSubmit={(event) => void save(event)}>
         <div className="customer-form-heading">
           <div>
@@ -202,9 +207,11 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
             <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={2} maxLength={1000} />
           </label>
         </div>
+        {error && <p className="form-error" role="alert">{error}</p>}
         <button className="auth-submit" type="submit" disabled={saving || customers.length === 0}>{saving ? "Guardando..." : form.kind === "SERVICE" ? "Agendar servicio" : "Agregar pedido"}</button>
         {customers.length === 0 && <p className="module-description">Primero cargá un cliente.</p>}
       </form>
+      </FormModal>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {orders.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Cliente o pedido" />}
       <div className="customer-actions">

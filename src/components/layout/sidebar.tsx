@@ -19,9 +19,9 @@ export function Sidebar({ businessId, businessKind = "STORE", isOpen, onClose }:
     ? [
         { label: "Tablero", href: "/" },
         { label: "Este negocio", href: `/businesses/${businessId}` },
-        { label: "Ventas", href: `/businesses/${businessId}/sales` },
+        ...(service ? [] : [{ label: "Ventas", href: `/businesses/${businessId}/sales` }]),
         { label: service ? "Reservas" : "Pedidos", href: `/businesses/${businessId}/orders` },
-        ...(service ? [] : [{ label: "Productos", href: `/businesses/${businessId}/products` }]),
+        ...(service ? [{ label: "Stock", href: `/businesses/${businessId}/stock` }] : [{ label: "Productos", href: `/businesses/${businessId}/products` }]),
         { label: "Clientes", href: `/businesses/${businessId}/customers` },
         { label: "Proveedores", href: `/businesses/${businessId}/suppliers` },
         { label: "Gastos", href: `/businesses/${businessId}/expenses` },
@@ -55,7 +55,7 @@ export function Sidebar({ businessId, businessKind = "STORE", isOpen, onClose }:
         <NavGroup label="Cuenta" items={account} pathname={pathname} onClose={onClose} />
         <div className="sidebar-footer">
           <HolosLogo variant="mark" className="sidebar-footer-mark" />
-          <p>{service ? "Una venta cobra el servicio, actualiza al cliente y deja el comprobante." : "Una venta mueve stock, cliente, factura y tablero."}</p>
+          <p>{service ? "La reserva cobra el servicio. El stock de insumos y herramientas se mueve aparte." : "Una venta mueve stock, cliente, factura y tablero."}</p>
         </div>
       </aside>
     </>

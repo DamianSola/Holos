@@ -3,9 +3,11 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { applySaleDiscount } from "@/lib/sale-discount";
+import { receiptText } from "@/lib/whatsapp";
+import { SendReceiptWhatsapp } from "@/components/whatsapp-link";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
-type Customer = { id: string; name: string };
+type Customer = { id: string; name: string; phone?: string | null };
 type Sale = {
   id: string;
   status: "DRAFT" | "CONFIRMED" | "CANCELLED";
@@ -27,7 +29,7 @@ const paymentMethods = [
 
 const emptyForm = { customerId: "", serviceDate: "", amount: "", place: "", description: "", paymentMethod: "TRANSFER", discountKind: "NONE" as "NONE" | "PERCENT" | "PRICE", discountPercent: "", discountPrice: "" };
 
-export function ServiceSalesPage({ businessId }: { businessId: string }) {
+export function ServiceSalesPage({ businessId, businessName }: { businessId: string; businessName: string }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -238,6 +240,7 @@ export function ServiceSalesPage({ businessId }: { businessId: string }) {
                   <strong>{formatMoney(sale.totalMinor)}</strong>
                   {sale.subtotalMinor > sale.totalMinor && <small>Presupuesto {formatMoney(sale.subtotalMinor)}</small>}
                   {sale.status === "CONFIRMED" && <a className="text-button" href={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket`} target="_blank" rel="noreferrer">Imprimir</a>}
+                  {sale.status === "CONFIRMED" && <SendReceiptWhatsapp phone={sale.customer?.phone} text={receiptText({ businessName, customerName: sale.customer?.name ?? "cliente", invoiceNumber: sale.invoice?.number, when: new Date(sale.serviceDate ?? Date.now()), lines: [sale.description, sale.place].filter((line): line is string => Boolean(line)), totalMinor: sale.totalMinor, cae: sale.invoice?.arcaStatus === "AUTHORIZED" ? sale.invoice.cae : null })} pdfUrl={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket?format=pdf`} fileName={`${sale.invoice?.number ?? "comprobante"}.pdf`} />}
                   {sale.invoice && <small>{sale.invoice.number}</small>}
                   {sale.invoice?.arcaStatus !== "AUTHORIZED" && <button className="text-button" type="button" onClick={() => void deleteSale(sale.id)}>Eliminar</button>}
                 </div>

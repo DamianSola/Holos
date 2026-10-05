@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, productSchema, productUpdateSchema, saleSchema, serviceSaleSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
+import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, orderPaymentSchema, productSchema, productUpdateSchema, saleSchema, serviceReservationSchema, serviceSaleSchema, stockItemSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
 
 describe("domain input validation", () => {
   it("accepts a valid product with minor-unit pricing", () => {
@@ -24,6 +24,12 @@ describe("domain input validation", () => {
 
   it("requires a customer name", () => {
     expect(customerSchema.safeParse({ name: "" }).success).toBe(false);
+  });
+
+  it("accepts a supply or tool and rejects one without a kind", () => {
+    expect(stockItemSchema.safeParse({ name: "Vodka", catalogKind: "SUPPLY", stock: 4, minimumStock: 1 }).success).toBe(true);
+    expect(stockItemSchema.safeParse({ name: "Shaker", catalogKind: "TOOL", stock: 2 }).success).toBe(true);
+    expect(stockItemSchema.safeParse({ name: "Vodka", catalogKind: "PRODUCT", stock: 1 }).success).toBe(false);
   });
 
   it("accepts product updates and non-zero inventory adjustments", () => {
@@ -72,6 +78,13 @@ describe("domain input validation", () => {
   it("accepts a manual service sale and rejects one without a place", () => {
     expect(serviceSaleSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", paymentMethod: "TRANSFER", serviceDate: "2026-11-02", amountMinor: 45000000, place: "Salón Norte", description: "Barra de tragos, 4 horas" }).success).toBe(true);
     expect(serviceSaleSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", paymentMethod: "TRANSFER", serviceDate: "2026-11-02", amountMinor: 45000000, place: "", description: "Barra" }).success).toBe(false);
+  });
+
+  it("accepts a service reservation and rejects one without a place", () => {
+    expect(serviceReservationSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", title: "Barra de tragos, 4 horas", scheduledFor: "2026-11-02", amountMinor: 45000000, place: "Salón Norte" }).success).toBe(true);
+    expect(serviceReservationSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", title: "Barra", scheduledFor: "2026-11-02", amountMinor: 45000000, place: "" }).success).toBe(false);
+    expect(orderPaymentSchema.safeParse({ amountMinor: 15000000, paymentMethod: "CASH" }).success).toBe(true);
+    expect(orderPaymentSchema.safeParse({ amountMinor: 0, paymentMethod: "CASH" }).success).toBe(false);
   });
 
   it("accepts a dated product order and rejects a service without a title", () => {

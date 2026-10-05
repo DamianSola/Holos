@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { OrdersPage } from "@/components/modules/orders-page";
+import { ServiceReservationsPage } from "@/components/modules/service-reservations-page";
 import { requireBusinessPage } from "@/server/billing/access";
 
 export default async function OrdersRoute({ params }: { params: Promise<{ businessId: string }> }) {
@@ -8,7 +9,9 @@ export default async function OrdersRoute({ params }: { params: Promise<{ busine
   const kind = membership.business.kind;
   return (
     <AppShell businessId={businessId} businessKind={kind} userName={user.name ?? user.email}>
-      <OrdersPage businessId={businessId} businessKind={kind} />
+      {kind === "SERVICE"
+        ? <ServiceReservationsPage businessId={businessId} businessName={membership.business.name} />
+        : <OrdersPage businessId={businessId} businessKind={kind} />}
     </AppShell>
   );
 }

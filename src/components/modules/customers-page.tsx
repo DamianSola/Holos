@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormModal } from "@/components/forms/form-modal";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
+import { WhatsappLink } from "@/components/whatsapp-link";
 
 type Customer = { id: string; name: string; email: string | null; phone: string | null; notes: string | null; sales: Array<{ id: string; totalMinor: number; status: "DRAFT" | "CONFIRMED" | "CANCELLED" }> };
 
@@ -17,6 +19,7 @@ export function CustomersPage({ businessId }: { businessId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -50,12 +53,21 @@ export function CustomersPage({ businessId }: { businessId: string }) {
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
+    setFormOpen(false);
+  }
+
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError("");
+    setFormOpen(true);
   }
 
   function startEditing(customer: Customer) {
     setEditingId(customer.id);
     setForm({ name: customer.name, email: customer.email ?? "", phone: customer.phone ?? "", notes: customer.notes ?? "" });
     setError("");
+    setFormOpen(true);
   }
 
   async function saveCustomer(event: FormEvent<HTMLFormElement>) {
@@ -81,10 +93,11 @@ export function CustomersPage({ businessId }: { businessId: string }) {
 
   return <ModuleLayout eyebrow="Relación" title="Clientes" description="Guardá clientes, sus datos de contacto y todo el historial de relación comercial.">
     <div className="customer-summary"><div className="summary-card"><span>Total</span><strong>{stats.total}</strong></div><div className="summary-card"><span>Con email</span><strong>{stats.withEmail}</strong></div><div className="summary-card"><span>Con teléfono</span><strong>{stats.withPhone}</strong></div></div>
-    <form className="customer-form" onSubmit={saveCustomer}><div className="customer-form-heading"><div><h2>{editingId ? "Editar cliente" : "Nuevo cliente"}</h2><p>{editingId ? "Actualizá los datos del perfil." : "Agregá un cliente al negocio."}</p></div>{editingId && <button className="secondary-button" type="button" onClick={resetForm}>Cancelar</button>}</div><div className="customer-form-grid"><label>Nombre<input value={form.name} onChange={(event) => updateForm("name", event.target.value)} required maxLength={160} /></label><label>Email<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="cliente@ejemplo.com" /></label><label>Teléfono<input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} placeholder="+54 ..." maxLength={40} /></label><label className="customer-form-wide">Notas<textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} rows={3} maxLength={1000} /></label></div><button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : editingId ? "Guardar cliente" : "Agregar cliente"}</button></form>
+    <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}>Nuevo cliente</button></div>
+    {formOpen && <FormModal title={editingId ? "Editar cliente" : "Nuevo cliente"} onClose={resetForm}><form className="customer-form" onSubmit={saveCustomer}><div className="customer-form-grid"><label>Nombre<input value={form.name} onChange={(event) => updateForm("name", event.target.value)} required maxLength={160} /></label><label>Email<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="cliente@ejemplo.com" /></label><label>Teléfono<input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} placeholder="+54 ..." maxLength={40} /></label><label className="customer-form-wide">Notas<textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} rows={3} maxLength={1000} /></label></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : editingId ? "Guardar cliente" : "Agregar cliente"}</button></form></FormModal>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {items.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Nombre, teléfono o email" />}
-    {loading ? <LoadingState /> : items.length === 0 ? <EmptyState text="Todavía no hay clientes." /> : visible.length ? <div className="customer-list">{visible.map((customer) => <article className="customer-card" key={customer.id}><div className="customer-card-header"><div><strong>{customer.name}</strong>{customer.notes && <p>{customer.notes}</p>}</div><div className="customer-pill-row"><span className="customer-pill">{customer.sales.length} ventas</span></div></div><div className="customer-contact"><span>{customer.email ?? "Sin email"}</span><span>{customer.phone ?? "Sin teléfono"}</span></div><div className="customer-actions"><button className="secondary-button" type="button" onClick={() => startEditing(customer)}>Editar</button><button className="text-button" type="button" onClick={() => void deleteCustomer(customer.id)}>Eliminar</button></div></article>)}</div> : <SearchMiss query={query} />}
+    {loading ? <LoadingState /> : items.length === 0 ? <EmptyState text="Todavía no hay clientes." /> : visible.length ? <div className="customer-list">{visible.map((customer) => <article className="customer-card" key={customer.id}><div className="customer-card-header"><div><strong>{customer.name}</strong>{customer.notes && <p>{customer.notes}</p>}</div><div className="customer-pill-row"><span className="customer-pill">{customer.sales.length} ventas</span></div></div><div className="customer-contact"><span>{customer.email ?? "Sin email"}</span><span>{customer.phone ?? "Sin teléfono"}</span></div><div className="customer-actions"><WhatsappLink phone={customer.phone} /><button className="secondary-button" type="button" onClick={() => startEditing(customer)}>Editar</button><button className="text-button" type="button" onClick={() => void deleteCustomer(customer.id)}>Eliminar</button></div></article>)}</div> : <SearchMiss query={query} />}
   </ModuleLayout>;
 }
 

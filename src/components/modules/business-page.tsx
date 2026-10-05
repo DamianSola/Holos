@@ -146,7 +146,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
         <div className="customer-form-heading">
           <div>
             <h2>Crear negocio</h2>
-            <p>{form.kind === "SERVICE" ? "Vas a agendar servicios y cobrarlos con un presupuesto, sin catálogo ni stock." : "Vas a vender productos, con catálogo y stock."}</p>
+            <p>{form.kind === "SERVICE" ? "Vas a agendar cada servicio, cobrarlo desde la reserva y llevar el stock de insumos y herramientas." : "Vas a vender productos, con catálogo y stock."}</p>
           </div>
         </div>
         <div className="customer-form-grid">
@@ -188,16 +188,16 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
 
               <div className="customer-contact">
                 <span>Clientes: {business.customerCount}</span>
-                {business.kind === "SERVICE" ? null : <span>Productos: {business.productCount}</span>}
-                {business.kind === "SERVICE" ? null : <span>Stock crítico: {business.criticalProducts}</span>}
+                <span>{business.kind === "SERVICE" ? "Stock" : "Productos"}: {business.productCount}</span>
+                <span>Stock crítico: {business.criticalProducts}</span>
               </div>
 
               <div className="customer-actions">
                 <a className="secondary-button" href="/">Tablero</a>
                 <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir negocio</a>
-                <a className="secondary-button" href={`/businesses/${business.id}/sales`}>Vender</a>
+                {business.kind === "SERVICE" ? null : <a className="secondary-button" href={`/businesses/${business.id}/sales`}>Vender</a>}
                 <a className="secondary-button" href={`/businesses/${business.id}/orders`}>{business.kind === "SERVICE" ? "Reservas" : "Pedidos"}</a>
-                {business.kind === "SERVICE" ? null : <a className="secondary-button" href={`/businesses/${business.id}/products`}>Productos</a>}
+                <a className="secondary-button" href={business.kind === "SERVICE" ? `/businesses/${business.id}/stock` : `/businesses/${business.id}/products`}>{business.kind === "SERVICE" ? "Stock" : "Productos"}</a>
                 <a className="secondary-button" href={`/businesses/${business.id}/customers`}>Clientes</a>
                 {business.role === "OWNER" && <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />}
                 {business.role === "OWNER" && <><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button><button className="text-button" type="button" onClick={() => void archiveBusiness(business)}>Archivar</button></>}

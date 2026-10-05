@@ -15,12 +15,14 @@ export async function GET() {
 
   const businesses = await Promise.all(
     user.memberships.filter(({ business }) => !business.deletedAt).map(async ({ business, role }) => {
-      const [customerCount, productCount, criticalProducts, salesMonth, salesToday] = await prisma.$transaction([
+      const [customerCount, productCount, criticalProducts, salesMonth, salesToday, paymentsMonth, paymentsToday] = await prisma.$transaction([
         prisma.customer.count({ where: { businessId: business.id, deletedAt: null } }),
         prisma.product.count({ where: { businessId: business.id, status: "ACTIVE", deletedAt: null } }),
         prisma.product.count({ where: { businessId: business.id, status: "ACTIVE", deletedAt: null, stock: { lte: prisma.product.fields.minimumStock } } }),
         prisma.sale.aggregate({ where: { businessId: business.id, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
         prisma.sale.aggregate({ where: { businessId: business.id, status: "CONFIRMED", confirmedAt: { gte: startOfDay } }, _sum: { totalMinor: true } }),
+        prisma.orderPayment.aggregate({ where: { businessId: business.id, paidAt: { gte: startOfMonth } }, _sum: { amountMinor: true } }),
+        prisma.orderPayment.aggregate({ where: { businessId: business.id, paidAt: { gte: startOfDay } }, _sum: { amountMinor: true } }),
       ]);
 
       return {
@@ -32,8 +34,8 @@ export async function GET() {
         customerCount,
         productCount,
         criticalProducts,
-        salesMonthMinor: salesMonth._sum.totalMinor ?? 0,
-        salesTodayMinor: salesToday._sum.totalMinor ?? 0,
+        salesMonthMinor: (salesMonth._sum.totalMinor ?? 0) + (paymentsMonth._sum.amountMinor ?? 0),
+        salesTodayMinor: (salesToday._sum.totalMinor ?? 0) + (paymentsToday._sum.amountMinor ?? 0),
       };
     }),
   );

@@ -60,12 +60,22 @@ export const productSchema = z.object({
 
 export const productUpdateSchema = z.object({
   name: z.string().trim().min(1).max(160),
+  catalogKind: z.enum(["SUPPLY", "TOOL"]).optional(),
   category: z.string().trim().max(120).optional(),
   description: z.string().trim().max(2000).optional(),
   priceMinor: z.number().int().nonnegative().max(2_147_483_647),
   costMinor: z.number().int().nonnegative().max(2_147_483_647).optional(),
   minimumStock: z.number().int().nonnegative().max(2_147_483_647),
   status: z.enum(["ACTIVE", "ARCHIVED"]),
+}).strict();
+
+export const stockItemSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  catalogKind: z.enum(["SUPPLY", "TOOL"]),
+  description: z.string().trim().max(2000).optional(),
+  costMinor: z.number().int().nonnegative().max(2_147_483_647).optional(),
+  stock: z.number().int().nonnegative().max(2_147_483_647).default(0),
+  minimumStock: z.number().int().nonnegative().max(2_147_483_647).default(0),
 }).strict();
 
 export const inventoryAdjustmentSchema = z.object({
@@ -112,6 +122,28 @@ export const customerOrderSchema = z.object({
 
 export const customerOrderStatusSchema = z.object({
   status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]),
+}).strict();
+
+export const serviceReservationSchema = z.object({
+  customerId: z.string().uuid(),
+  title: z.string().trim().min(1).max(160),
+  scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amountMinor: z.number().int().positive().max(2_147_483_647),
+  place: z.string().trim().min(1).max(160),
+}).strict();
+
+export const serviceReservationUpdateSchema = z.object({
+  customerId: z.string().uuid().optional(),
+  title: z.string().trim().min(1).max(160).optional(),
+  scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  amountMinor: z.number().int().positive().max(2_147_483_647).optional(),
+  place: z.string().trim().min(1).max(160).optional(),
+  status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]).optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, "Sin cambios.");
+
+export const orderPaymentSchema = z.object({
+  amountMinor: z.number().int().positive().max(2_147_483_647),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"]),
 }).strict();
 
 export const supplierSchema = z.object({

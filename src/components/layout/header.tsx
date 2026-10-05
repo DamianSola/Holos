@@ -94,6 +94,7 @@ function sectionLabel(pathname: string, businessKind: "STORE" | "SERVICE") {
   if (pathname.endsWith("/sales")) return "Ventas";
   if (pathname.endsWith("/orders")) return businessKind === "SERVICE" ? "Reservas" : "Pedidos";
   if (pathname.endsWith("/products")) return "Productos";
+  if (pathname.endsWith("/stock")) return "Stock";
   if (pathname.endsWith("/customers")) return "Clientes";
   if (pathname.endsWith("/suppliers")) return "Proveedores";
   if (pathname.endsWith("/expenses")) return "Gastos";

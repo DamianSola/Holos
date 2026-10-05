@@ -19,10 +19,11 @@ export async function Dashboard({ businessId, businessName, businessImage }: Das
       </section>
 
       <section className="status-grid" aria-label="Business metrics">
-        <StatusCard label="Ventas del mes" value={formatMoney(data.salesMonthMinor)} detail="Ventas confirmadas este mes." tone="ready" />
+        <StatusCard label={service ? "Ingresos del mes" : "Ventas del mes"} value={formatMoney(data.salesMonthMinor)} detail={service ? "Pagos de reservas y ventas ya cobradas." : "Ventas confirmadas este mes."} tone="ready" />
         <StatusCard label="Gastos del mes" value={formatMoney(data.expensesMonthMinor)} detail="Gastos registrados este mes." tone="pending" />
-        <StatusCard label="Ventas de hoy" value={formatMoney(data.salesTodayMinor)} detail="Ventas confirmadas desde medianoche." tone="ready" />
-        {service ? <StatusCard label="Reservas próximas" value={String(data.scheduledServices)} detail="Servicios agendados que todavía no se cumplieron." tone="ready" /> : <StatusCard label="Stock crítico" value={String(data.criticalProducts)} detail="Productos en stock mínimo o inferior." tone={data.criticalProducts ? "pending" : "ready"} />}
+        <StatusCard label={service ? "Ingresos de hoy" : "Ventas de hoy"} value={formatMoney(data.salesTodayMinor)} detail={service ? "Pagos registrados desde medianoche." : "Ventas confirmadas desde medianoche."} tone="ready" />
+        {service ? <StatusCard label="Reservas próximas" value={String(data.scheduledServices)} detail="Servicios agendados que todavía no se cumplieron." tone="ready" /> : null}
+        <StatusCard label="Stock crítico" value={String(data.criticalProducts)} detail={service ? "Insumos o herramientas en el mínimo o por debajo." : "Productos en stock mínimo o inferior."} tone={data.criticalProducts ? "pending" : "ready"} />
         <StatusCard label="Clientes" value={String(data.customers)} detail="Clientes activos del negocio." tone="ready" />
         <StatusCard label="Equipo" value={String(data.memberCount)} detail="Miembros con acceso a este negocio." tone="ready" />
       </section>
@@ -48,8 +49,8 @@ export async function Dashboard({ businessId, businessName, businessImage }: Das
       </section>
 
       <section className="panel sales-history">
-        <div className="panel-heading"><div><p className="eyebrow">Historial</p><h2>Últimas ventas</h2></div><span className="panel-count">Historial permanente</span></div>
-        {data.recentSales.length ? <div className="data-list">{data.recentSales.map((sale) => <div className="data-row" key={sale.id}><span>{sale.customer?.name ?? "Consumidor final"} · {sale.status}</span><strong>{formatMoney(sale.totalMinor)}</strong></div>)}</div> : <div className="empty-state"><p>Todavía no hay ventas registradas.</p></div>}
+        <div className="panel-heading"><div><p className="eyebrow">Historial</p><h2>{service ? "Últimos cobros" : "Últimas ventas"}</h2></div><span className="panel-count">Historial permanente</span></div>
+        {service ? <ServiceCollections payments={data.recentPayments} sales={data.recentSales} /> : data.recentSales.length ? <div className="data-list">{data.recentSales.map((sale) => <div className="data-row" key={sale.id}><span>{sale.customer?.name ?? "Consumidor final"} · {sale.status}</span><strong>{formatMoney(sale.totalMinor)}</strong></div>)}</div> : <div className="empty-state"><p>Todavía no hay ventas registradas.</p></div>}
       </section>
 
       <TasksPanel businessId={businessId} members={data.members.map((membership) => membership.user)} />
@@ -75,6 +76,15 @@ function StatusCard({ label, value, detail, tone }: StatusCardProps) {
       <p>{detail}</p>
     </article>
   );
+}
+
+function ServiceCollections({ payments, sales }: { payments: Array<{ id: string; amountMinor: number; paidAt: Date; order: { title: string; customer: { name: string } } }>; sales: Array<{ id: string; totalMinor: number; status: string; confirmedAt: Date | null; createdAt: Date; customer: { name: string } | null }> }) {
+  const rows = [
+    ...payments.map((payment) => ({ id: payment.id, at: new Date(payment.paidAt).getTime(), label: `${payment.order.customer.name} · ${payment.order.title}`, amountMinor: payment.amountMinor })),
+    ...sales.filter((sale) => sale.status === "CONFIRMED").map((sale) => ({ id: sale.id, at: new Date(sale.confirmedAt ?? sale.createdAt).getTime(), label: `${sale.customer?.name ?? "Cliente"} · venta anterior`, amountMinor: sale.totalMinor })),
+  ].sort((left, right) => right.at - left.at).slice(0, 8);
+  if (!rows.length) return <div className="empty-state"><p>Todavía no hay cobros registrados.</p></div>;
+  return <div className="data-list">{rows.map((row) => <div className="data-row" key={row.id}><span>{row.label}</span><strong>{formatMoney(row.amountMinor)}</strong></div>)}</div>;
 }
 
 function formatMoney(valueMinor: number) {

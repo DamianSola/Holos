@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormModal } from "@/components/forms/form-modal";
 
 type Membership = {
   id: string;
@@ -26,6 +27,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -73,6 +75,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
 
     setEmail("");
     setRole("EMPLOYEE");
+    setInviteOpen(false);
     setSaving(false);
     await load();
   }
@@ -125,14 +128,10 @@ export function TeamPage({ businessId }: { businessId: string }) {
         <div className="summary-card"><span>Empleados</span><strong>{stats.employees}</strong></div>
       </div>
 
-      {isOwner && (
+      {isOwner && <div className="customer-actions"><button className="auth-submit" type="button" onClick={() => { setError(""); setInviteOpen(true); }}>Invitar</button></div>}
+      {isOwner && inviteOpen && (
+        <FormModal title="Invitar al equipo" onClose={() => setInviteOpen(false)}>
         <form className="customer-form" onSubmit={inviteMember}>
-          <div className="customer-form-heading">
-            <div>
-              <h2>Invitar al equipo</h2>
-              <p>Agregá alguien por correo y asignale un rol.</p>
-            </div>
-          </div>
           <div className="customer-form-grid">
             <label>
               Email
@@ -146,8 +145,10 @@ export function TeamPage({ businessId }: { businessId: string }) {
               </select>
             </label>
           </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
           <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Enviando..." : "Enviar invitación"}</button>
         </form>
+        </FormModal>
       )}
 
       {error && <p className="form-error" role="alert">{error}</p>}

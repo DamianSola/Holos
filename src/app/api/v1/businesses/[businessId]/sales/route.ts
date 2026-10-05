@@ -78,7 +78,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const sale = await prisma.$transaction(async (tx) => {
       const products = await tx.product.findMany({ where: { id: { in: [...uniqueProductIds] }, businessId, deletedAt: null, status: "ACTIVE" } });
-      if (products.length !== uniqueProductIds.size) throw new Error("PRODUCT_NOT_FOUND");
+      if (products.length !== uniqueProductIds.size || products.some((product) => product.catalogKind !== "PRODUCT")) throw new Error("PRODUCT_NOT_FOUND");
       if (parsed.data.customerId) {
         const customer = await tx.customer.findFirst({ where: { id: parsed.data.customerId, businessId, deletedAt: null } });
         if (!customer) throw new Error("CUSTOMER_NOT_FOUND");
