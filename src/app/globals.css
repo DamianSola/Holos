@@ -837,7 +837,9 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
   .breadcrumbs span, .current-user-copy { display: none; }
   .user-menu { padding-left: 8px; }
   h1 { font-size: 30px; }
-  .dashboard-intro, .portfolio-section-heading, .customer-card-header, .customer-contact, .customer-actions, .sale-row, .task-row { align-items: flex-start; flex-direction: column; }
+  .dashboard-intro, .portfolio-section-heading, .customer-card-header, .customer-contact, .sale-row, .task-row, .data-row, .agenda-day header { align-items: flex-start; flex-direction: column; flex-wrap: nowrap; }
+  .customer-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .customer-actions .image-picker { width: 100%; flex: 1 1 100%; }
   .status-grid, .portfolio-stat-grid, .customer-summary, .customer-form-grid, .product-form-grid, .task-form { grid-template-columns: 1fr; }
   .product-form-wide, .customer-form-wide, .task-form-wide { grid-column: span 1; }
   .product-card-main { align-items: flex-start; }
@@ -853,6 +855,8 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
   .reservation-toolbar, .reservation-nav, .modal-header { align-items: stretch; }
 }
 
+.view-switch { display: flex; flex-wrap: wrap; gap: 8px; }
+.view-switch .auth-submit { margin-top: 0; }
 .reservation-toolbar, .reservation-nav, .reservation-caption, .modal-header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .reservation-toolbar, .reservation-caption { justify-content: space-between; margin: 8px 0 14px; }
 .reservation-caption { color: var(--text-secondary); }
@@ -902,4 +906,70 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
 @media (max-width: 640px) {
   .reservation-money, .reservation-pay { grid-template-columns: 1fr; }
   .reservation-meta { flex-direction: column; }
+}
+
+@media (max-width: 900px) {
+  .sidebar { width: min(280px, 88vw); }
+  .main-content, .module-page, .panel, .sales-history, .customer-card, .product-card { min-width: 0; }
+  .panel-heading, .sale-section-heading, .dashboard-intro, .portfolio-section-heading, .product-form-heading, .customer-form-heading { flex-wrap: wrap; }
+  .list-search { max-width: none; }
+  .trend-table-wrap { max-width: 100%; }
+  .pem-input { max-width: 100%; }
+}
+
+@media (max-width: 640px) {
+  body { overflow-x: clip; }
+  .topbar { height: auto; min-height: 60px; padding: 8px 12px; gap: 8px; }
+  .topbar-leading { flex: 1; gap: 8px; min-width: 0; }
+  .topbar .business-logo { display: none; }
+  .breadcrumbs { min-width: 0; }
+  .breadcrumbs a, .breadcrumbs span { display: none; }
+  .breadcrumbs strong { overflow: hidden; max-width: 28vw; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-actions { flex: 0 0 auto; gap: 6px; }
+  .menu-button { padding: 0 10px; }
+  .notification-popover, .user-menu-popover {
+    position: fixed;
+    top: 68px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: min(70vh, 480px);
+    overflow: auto;
+  }
+  .identity-line { flex-wrap: wrap; align-items: flex-start; }
+  .identity-line .business-logo { width: 56px; height: 56px; flex-basis: 56px; }
+  h1, .customer-card-header p, .sale-row p, .data-row span { overflow-wrap: anywhere; }
+  .data-row, .agenda-day header { align-items: flex-start; flex-direction: column; }
+  .sale-form input, .sale-form select, .inline-form input { width: 100%; min-width: 0; }
+  .product-actions > button { flex: 1 1 calc(50% - 8px); min-width: 0; white-space: normal; }
+  .customer-actions > a, .customer-actions > button { flex: 0 1 auto; max-width: 100%; white-space: normal; }
+  .sale-row-total { justify-items: start; }
+  .change-list { flex-wrap: wrap; justify-content: flex-start; }
+  .summary-card strong, .metric-card > strong, .status-card strong { overflow-wrap: anywhere; }
+  .customer-form > .auth-submit, .product-form > .auth-submit, .reservation-toolbar > .auth-submit { width: 100%; justify-self: stretch; }
+  .reservation-toolbar, .reservation-nav, .view-switch { width: 100%; }
+  .view-switch > button, .reservation-nav > button { flex: 1 1 auto; }
+  .calendar-board { gap: 3px; }
+  .calendar-day { min-height: 58px; padding: 2px; }
+  .calendar-dow { font-size: 11px; }
+  .modal-backdrop { align-items: end; padding: 8px; }
+  .modal-card { width: 100%; max-height: 94vh; }
+  .modal-card > .reservation-detail, .modal-card > .customer-form { padding: 14px 14px 18px; }
+  input, select, textarea { font-size: 16px; }
+  .auth-stage { padding: 24px 16px 20px; }
+  .auth-stage-copy { font-size: 16px; }
+  .auth-panel { padding: 8px 16px 40px; }
+  .marketing-nav { gap: 8px; padding: 14px 16px; }
+  .marketing-hero { padding-top: 88px; }
+  .marketing-hero h1 { font-size: 42px; }
+  .marketing-lead, .marketing-audience { font-size: 16px; }
+  .marketing-operation { width: calc(100% - 32px); }
+  .marketing-story { padding-top: 48px; padding-bottom: 56px; }
+}
+
+@media (max-width: 380px) {
+  .marketing-lockup { width: 96px; }
+  .breadcrumbs strong { max-width: 22vw; }
+  .calendar-day { min-height: 48px; }
+  .reservation-chip.is-compact span, .reservation-chip.is-compact em { display: none; }
 }
