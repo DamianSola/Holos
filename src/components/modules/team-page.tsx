@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
 
@@ -19,14 +19,14 @@ type Invitation = {
   createdAt: string;
 };
 
-export function TeamPage({ businessId }: { businessId: string }) {
-  const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [currentUserRole, setCurrentUserRole] = useState<"OWNER" | "EMPLOYEE" | null>(null);
+export function TeamPage({ businessId, initialMemberships, initialInvitations, initialRole }: { businessId: string; initialMemberships: Membership[]; initialInvitations: Invitation[]; initialRole: "OWNER" | "EMPLOYEE" }) {
+  const [memberships, setMemberships] = useState<Membership[]>(initialMemberships);
+  const [invitations, setInvitations] = useState<Invitation[]>(initialInvitations);
+  const [currentUserRole, setCurrentUserRole] = useState<"OWNER" | "EMPLOYEE" | null>(initialRole);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"OWNER" | "EMPLOYEE">("EMPLOYEE");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
@@ -46,10 +46,6 @@ export function TeamPage({ businessId }: { businessId: string }) {
     setCurrentUserRole(data.currentUser?.role ?? null);
     setLoading(false);
   }
-
-  useEffect(() => {
-    void load();
-  }, [businessId]);
 
   const stats = useMemo(() => ({
     total: memberships.length,

@@ -2,31 +2,17 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
+import { getTeamScreen } from "@/server/services/team";
 import { membershipInviteSchema, membershipRoleSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string }> };
-
-async function getMembershipsForBusiness(businessId: string) {
-  const memberships = await prisma.membership.findMany({
-    where: { businessId, deletedAt: null },
-    include: { user: { select: { id: true, name: true, email: true, status: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const invitations = await prisma.invitation.findMany({
-    where: { businessId, status: "PENDING", expiresAt: { gt: new Date() } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return { memberships, invitations };
-}
 
 export async function GET(_request: Request, context: Context) {
   const { businessId } = await context.params;
   const access = await authorizeBusiness(businessId);
   if ("response" in access) return access.response;
 
-  const { memberships, invitations } = await getMembershipsForBusiness(businessId);
+  const { memberships, invitations } = await getTeamScreen(businessId);
   return Response.json({
     memberships,
     invitations,

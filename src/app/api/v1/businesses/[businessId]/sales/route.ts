@@ -22,7 +22,23 @@ export async function GET(request: Request, context: Context) {
   const service = access.membership.business.kind === "SERVICE";
   const sales = await prisma.sale.findMany({
     where: range ? { businessId, OR: service ? serviceDateWhere(range.start, range.end) : storeDateWhere(range.start, range.end) } : { businessId },
-    include: { customer: true, items: true, invoice: true },
+    select: {
+      id: true,
+      status: true,
+      paymentMethod: true,
+      subtotalMinor: true,
+      totalMinor: true,
+      discountKind: true,
+      discountPercentBps: true,
+      serviceDate: true,
+      place: true,
+      description: true,
+      createdAt: true,
+      confirmedAt: true,
+      customer: { select: { id: true, name: true, phone: true, email: true } },
+      items: { select: { productName: true, quantity: true, unitPriceMinor: true, totalMinor: true } },
+      invoice: { select: { number: true, arcaStatus: true, cae: true } },
+    },
     orderBy: { createdAt: "desc" },
     ...(range ? {} : { take: 100 }),
   });

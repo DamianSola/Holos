@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { ImagePicker } from "@/components/forms/account-fields";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 
@@ -27,18 +27,18 @@ type Portfolio = {
 
 const emptyForm = { name: "", kind: "STORE" as BusinessKind, image: "" };
 
-export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio }) {
-  const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
+export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialPortfolio: Portfolio; initialBusinesses: BusinessSummary[] }) {
+  const [businesses, setBusinesses] = useState<BusinessSummary[]>(initialBusinesses);
   const [form, setForm] = useState(emptyForm);
   const [pendingArchive, setPendingArchive] = useState<BusinessSummary | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
-    const response = await fetch("/api/v1/me", { cache: "no-store" });
+    const response = await fetch("/api/v1/directory", { cache: "no-store" });
     if (!response.ok) {
       setError("No se pudieron cargar tus negocios.");
       setLoading(false);
@@ -49,10 +49,6 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
     setBusinesses(data.businesses ?? []);
     setLoading(false);
   }
-
-  useEffect(() => {
-    void load();
-  }, []);
 
   async function createBusiness(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

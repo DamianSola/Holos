@@ -1,40 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HolosLogo } from "@/components/brand/holos-logo";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import type { ShellNotification } from "@/lib/shell-notification";
 
 type HeaderProps = {
   onMenuClick: () => void;
   userName: string;
   businessId: string;
   businessKind?: "STORE" | "SERVICE";
+  userImage?: string | null;
+  businessImage?: string | null;
+  notifications?: ShellNotification[];
 };
 
-export function Header({ onMenuClick, userName, businessId, businessKind = "STORE" }: HeaderProps) {
+export function Header({ onMenuClick, userName, businessId, businessKind = "STORE", userImage = "", businessImage = "", notifications = [] }: HeaderProps) {
   const pathname = usePathname();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
-  const [userImage, setUserImage] = useState("");
-  const [businesses, setBusinesses] = useState<Array<{ id: string; name: string; image?: string | null }>>([]);
   const section = sectionLabel(pathname, businessKind);
-  const businessMatch = pathname.match(/^\/businesses\/([^/]+)/);
-  const currentBusiness = businessMatch ? businesses.find((business) => business.id === businessMatch[1]) : undefined;
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/v1/me", { cache: "no-store" }).then(async (response) => {
-      if (!response.ok || cancelled) return;
-      const data = await response.json() as { image?: string | null; businesses?: Array<{ id: string; name: string; image?: string | null }> };
-      if (cancelled) return;
-      setUserImage(data.image ?? "");
-      setBusinesses(data.businesses ?? []);
-    }).catch(() => undefined);
-    return () => { cancelled = true; };
-  }, []);
+  const showBusinessLogo = Boolean(businessImage) && pathname.startsWith("/businesses/");
 
   async function logout() {
     setLoggingOut(true);
@@ -51,14 +40,14 @@ export function Header({ onMenuClick, userName, businessId, businessKind = "STOR
         <Link className="topbar-mark" href="/" aria-label="Ir al tablero">
           <HolosLogo variant="mark" />
         </Link>
-        {currentBusiness?.image ? <img className="business-logo" src={currentBusiness.image} alt={currentBusiness.name} /> : null}
+        {showBusinessLogo ? <img className="business-logo" src={businessImage ?? ""} alt="" /> : null}
         <div className="breadcrumbs" aria-label="Ubicación">
           {section === "Tablero" ? <strong>Tablero</strong> : <><Link href="/">Tablero</Link><span aria-hidden="true">/</span><strong>{section}</strong></>}
         </div>
       </div>
       <div className="topbar-actions">
         <ThemeToggle />
-        <NotificationBell businessId={businessId} />
+        <NotificationBell key={`${businessId}:${pathname}`} businessId={businessId} initialItems={notifications} />
         <div className="user-menu">
           <button className="current-user" type="button" aria-expanded={isUserMenuOpen} aria-haspopup="menu" aria-label="Abrir menú de usuario" onClick={() => setUserMenuOpen((value) => !value)}>
             <span className="avatar" aria-hidden="true">{userImage ? <img src={userImage} alt="" /> : initials(userName)}</span>

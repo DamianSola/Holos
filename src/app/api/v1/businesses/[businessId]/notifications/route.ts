@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse } from "@/server/http";
+import { listRecentNotifications } from "@/server/services/notifications";
 
 type Context = { params: Promise<{ businessId: string }> };
 
@@ -9,7 +10,7 @@ export async function GET(_request: Request, context: Context) {
   const access = await authorizeBusiness(businessId);
   if ("response" in access) return access.response;
 
-  const items = await prisma.notification.findMany({ where: { businessId, userId: access.user.id }, orderBy: { createdAt: "desc" }, take: 30 });
+  const items = await listRecentNotifications(access.user.id, businessId);
   return Response.json({ items, unread: items.filter((item) => !item.readAt).length });
 }
 

@@ -1,6 +1,6 @@
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse } from "@/server/http";
-import { getBusinessDashboard } from "@/server/services/dashboard";
+import { getBusinessDashboard, getMovement } from "@/server/services/dashboard";
 
 type Context = { params: Promise<{ businessId: string }> };
 
@@ -12,7 +12,7 @@ export async function GET(request: Request, context: Context) {
   if (!on) return Response.json(await getBusinessDashboard(businessId));
   const instant = argentinaNoon(on);
   if (!instant) return errorResponse(400, "INVALID_DATE", "La fecha no es válida.");
-  return Response.json(await getBusinessDashboard(businessId, instant));
+  return Response.json({ movement: await getMovement(businessId, instant) });
 }
 
 function argentinaNoon(value: string) {

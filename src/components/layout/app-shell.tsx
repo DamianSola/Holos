@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { businessContextCookie, rememberBusiness, type ShellBusiness } from "@/lib/business-context";
+import type { ShellNotification } from "@/lib/shell-notification";
 
 type AppShellProps = Readonly<{
   children: React.ReactNode;
@@ -13,9 +14,12 @@ type AppShellProps = Readonly<{
   businessKind?: "STORE" | "SERVICE";
   businessName?: string;
   businesses?: ShellBusiness[];
+  userImage?: string | null;
+  businessImage?: string | null;
+  notifications?: ShellNotification[];
 }>;
 
-export function AppShell({ children, businessId, userName, businessKind = "STORE", businessName = "", businesses = [] }: AppShellProps) {
+export function AppShell({ children, businessId, userName, businessKind = "STORE", businessName = "", businesses = [], userImage = "", businessImage = "", notifications = [] }: AppShellProps) {
   const pathname = usePathname();
   const [isNavigationOpen, setNavigationOpen] = useState(false);
 
@@ -38,7 +42,7 @@ export function AppShell({ children, businessId, userName, businessKind = "STORE
         onClose={() => setNavigationOpen(false)}
       />
       <div className="app-frame">
-        <Header onMenuClick={() => setNavigationOpen(true)} userName={userName} businessId={businessId} businessKind={businessKind} />
+        <Header onMenuClick={() => setNavigationOpen(true)} userName={userName} businessId={businessId} businessKind={businessKind} userImage={userImage} businessImage={businessImage} notifications={notifications} />
         <main className="main-content">{children}</main>
       </div>
     </div>

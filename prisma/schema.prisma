@@ -498,6 +498,7 @@ model Sale {
   invoice   Invoice?
 
   @@index([businessId, status, createdAt])
+  @@index([businessId, status, confirmedAt])
   @@index([businessId, customerId])
   @@index([createdById])
 }

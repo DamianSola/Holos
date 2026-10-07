@@ -8,44 +8,27 @@ export async function GET() {
   const user = await getSessionUser();
   if (!user) return errorResponse(401, "UNAUTHORIZED", "Sesión requerida.");
 
-  const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const businesses = await Promise.all(
-    user.memberships.filter(({ business }) => !business.deletedAt).map(async ({ business, role }) => {
-      const [customerCount, productCount, criticalProducts, salesMonth, salesToday, paymentsMonth, paymentsToday] = await prisma.$transaction([
-        prisma.customer.count({ where: { businessId: business.id, deletedAt: null } }),
-        prisma.product.count({ where: { businessId: business.id, status: "ACTIVE", deletedAt: null } }),
-        prisma.product.count({ where: { businessId: business.id, status: "ACTIVE", deletedAt: null, stock: { lte: prisma.product.fields.minimumStock } } }),
-        prisma.sale.aggregate({ where: { businessId: business.id, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
-        prisma.sale.aggregate({ where: { businessId: business.id, status: "CONFIRMED", confirmedAt: { gte: startOfDay } }, _sum: { totalMinor: true } }),
-        prisma.orderPayment.aggregate({ where: { businessId: business.id, paidAt: { gte: startOfMonth } }, _sum: { amountMinor: true } }),
-        prisma.orderPayment.aggregate({ where: { businessId: business.id, paidAt: { gte: startOfDay } }, _sum: { amountMinor: true } }),
-      ]);
-
-      return {
-        id: business.id,
-        name: business.name,
-        kind: business.kind,
-        image: business.image,
-        role,
-        customerCount,
-        productCount,
-        criticalProducts,
-        salesMonthMinor: (salesMonth._sum.totalMinor ?? 0) + (paymentsMonth._sum.amountMinor ?? 0),
-        salesTodayMinor: (salesToday._sum.totalMinor ?? 0) + (paymentsToday._sum.amountMinor ?? 0),
-      };
+  const [profile, memberships] = await Promise.all([
+    prisma.user.findUnique({ where: { id: user.id }, select: { image: true } }),
+    prisma.membership.findMany({
+      where: { userId: user.id, deletedAt: null, business: { deletedAt: null } },
+      select: { role: true, business: { select: { id: true, name: true, kind: true, image: true } } },
+      orderBy: { createdAt: "asc" },
     }),
-  );
+  ]);
 
   return Response.json({
     id: user.id,
     email: user.email,
     name: user.name,
-    image: user.image,
-    businesses,
+    image: profile?.image ?? null,
+    businesses: memberships.map(({ role, business }) => ({
+      id: business.id,
+      name: business.name,
+      kind: business.kind,
+      image: business.image,
+      role,
+    })),
     status: user.status,
   });
 }

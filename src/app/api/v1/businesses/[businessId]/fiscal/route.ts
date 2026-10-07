@@ -3,6 +3,7 @@ import { authorizeBusiness } from "@/server/auth/authorization";
 import { ArcaError } from "@/server/fiscal/document";
 import { sealSecret } from "@/server/fiscal/seal";
 import { errorResponse, unexpectedError } from "@/server/http";
+import { getFiscalScreen } from "@/server/services/fiscal-screen";
 import { fiscalProfileSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string }> };
@@ -12,21 +13,7 @@ export async function GET(_request: Request, context: Context) {
   const access = await authorizeBusiness(businessId, ["OWNER"]);
   if ("response" in access) return access.response;
 
-  const [business, profile] = await Promise.all([
-    prisma.business.findUnique({ where: { id: businessId }, select: { legalName: true, taxId: true } }),
-    prisma.fiscalProfile.findUnique({ where: { businessId } }),
-  ]);
-
-  return Response.json({
-    legalName: business?.legalName ?? "",
-    cuit: profile?.cuit ?? business?.taxId ?? "",
-    pointOfSale: profile?.pointOfSale ?? 1,
-    ivaCondition: profile?.ivaCondition ?? "MONOTRIBUTO",
-    environment: profile?.environment ?? "HOMOLOGACION",
-    certificateLoaded: Boolean(profile?.certCiphertext),
-    privateKeyLoaded: Boolean(profile?.keyCiphertext),
-    configured: Boolean(profile?.certCiphertext && profile.keyCiphertext && profile.cuit),
-  });
+  return Response.json(await getFiscalScreen(businessId));
 }
 
 export async function PUT(request: Request, context: Context) {

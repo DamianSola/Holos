@@ -1,24 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { ShellNotification } from "@/lib/shell-notification";
 
-type Notification = { id: string; title: string; message: string; readAt: string | null; createdAt: string };
-
-export function NotificationBell({ businessId }: { businessId: string }) {
-  const [items, setItems] = useState<Notification[]>([]);
+export function NotificationBell({ businessId, initialItems }: { businessId: string; initialItems: ShellNotification[] }) {
+  const [items, setItems] = useState<ShellNotification[]>(initialItems);
   const [open, setOpen] = useState(false);
-
-  async function load() {
-    if (!businessId) return;
-    try {
-      const response = await fetch(`/api/v1/businesses/${businessId}/notifications`, { cache: "no-store" });
-      if (response.ok) setItems((await response.json()).items);
-    } catch {
-      // La consulta se corta si la página se está yendo o el servidor no responde.
-    }
-  }
-
-  useEffect(() => { void load(); }, [businessId]);
 
   async function markRead(id: string) {
     try {

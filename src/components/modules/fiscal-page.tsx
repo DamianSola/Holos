@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 
 type FiscalForm = {
   legalName: string;
@@ -15,43 +15,11 @@ type FiscalForm = {
   configured: boolean;
 };
 
-const empty: FiscalForm = {
-  legalName: "",
-  cuit: "",
-  pointOfSale: 1,
-  ivaCondition: "MONOTRIBUTO",
-  environment: "HOMOLOGACION",
-  certificatePem: "",
-  privateKeyPem: "",
-  certificateLoaded: false,
-  privateKeyLoaded: false,
-  configured: false,
-};
-
-export function FiscalPage({ businessId }: { businessId: string }) {
-  const [form, setForm] = useState<FiscalForm>(empty);
-  const [loading, setLoading] = useState(true);
+export function FiscalPage({ businessId, initial }: { businessId: string; initial: FiscalForm }) {
+  const [form, setForm] = useState<FiscalForm>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const response = await fetch(`/api/v1/businesses/${businessId}/fiscal`, { cache: "no-store" });
-      if (cancelled) return;
-      if (!response.ok) {
-        setError("No se pudo cargar la facturación.");
-        setLoading(false);
-        return;
-      }
-      const data = await response.json();
-      setForm((current) => ({ ...current, ...data, certificatePem: "", privateKeyPem: "" }));
-      setLoading(false);
-    }
-    void load();
-    return () => { cancelled = true; };
-  }, [businessId]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -93,8 +61,6 @@ export function FiscalPage({ businessId }: { businessId: string }) {
     }
     setSuccess(`Conexión ok en ${data?.environment === "PRODUCCION" ? "producción" : "homologación"}. Último comprobante ${data?.letter}-${data?.lastNumber ?? 0}.`);
   }
-
-  if (loading) return <section className="module-page"><div className="module-state">Cargando facturación...</div></section>;
 
   return (
     <section className="module-page">

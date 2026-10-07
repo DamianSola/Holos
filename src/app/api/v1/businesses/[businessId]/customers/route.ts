@@ -11,11 +11,13 @@ export async function GET(_request: Request, context: Context) {
   if ("response" in access) return access.response;
   const customers = await prisma.customer.findMany({
     where: { businessId, deletedAt: null },
-    include: { sales: { select: { id: true, totalMinor: true, status: true } } },
     orderBy: { name: "asc" },
     take: 100,
+    include: { _count: { select: { sales: true } } },
   });
-  return Response.json({ items: customers });
+  return Response.json({
+    items: customers.map(({ _count, ...customer }) => ({ ...customer, saleCount: _count.sales })),
+  });
 }
 
 export async function POST(request: Request, context: Context) {

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 
 const SESSION_COOKIE = "holos_session";
@@ -27,7 +28,7 @@ export async function createSession(userId: string) {
   });
 }
 
-export async function getSessionUser() {
+export const getSessionUser = cache(async function getSessionUser() {
   const cookieStore = await cookies();
   const rawToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (!rawToken) return null;
@@ -36,8 +37,26 @@ export async function getSessionUser() {
     where: { sessionToken: hashToken(rawToken) },
     include: {
       user: {
-        include: {
-          memberships: { where: { deletedAt: null }, include: { business: true } },
+        select: {
+          id: true,
+          email: true,
+          emailNormalized: true,
+          name: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          deletedAt: true,
+          memberships: {
+            where: { deletedAt: null },
+            select: {
+              id: true,
+              role: true,
+              businessId: true,
+              userId: true,
+              deletedAt: true,
+              business: { select: { id: true, name: true, kind: true, deletedAt: true } },
+            },
+          },
         },
       },
     },
@@ -49,7 +68,7 @@ export async function getSessionUser() {
   }
 
   return session.user;
-}
+});
 
 export async function deleteSession(rawToken?: string) {
   const cookieStore = await cookies();
