@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ImagePicker } from "@/components/forms/account-fields";
+import { ConfirmModal } from "@/components/forms/confirm-modal";
 
 type BusinessKind = "STORE" | "SERVICE";
 
@@ -29,6 +30,7 @@ const emptyForm = { name: "", kind: "STORE" as BusinessKind, image: "" };
 export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio }) {
   const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [pendingArchive, setPendingArchive] = useState<BusinessSummary | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
@@ -96,8 +98,7 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
 
   async function archiveBusiness(business: BusinessSummary) {
     if (business.role !== "OWNER") return;
-    const confirmed = window.confirm(`¿Archivar ${business.name}? Primero descargá el respaldo si necesitás conservarlo fuera de la aplicación.`);
-    if (!confirmed) return;
+    setPendingArchive(null);
     setError(""); setSuccess("");
     const response = await fetch(`/api/v1/businesses/${business.id}`, { method: "DELETE" });
     if (!response.ok) { setError("No se pudo archivar el negocio."); return; }
@@ -173,45 +174,62 @@ export function BusinessPage({ initialPortfolio }: { initialPortfolio: Portfolio
       {loading ? (
         <div className="module-state">Cargando negocios...</div>
       ) : businesses.length ? (
-        <div className="customer-list">
-          {businesses.map((business) => (
-            <article className="customer-card" key={business.id}>
-              <div className="customer-card-header">
-                <div className="identity-line">
+        <div className="business-directory">
+          {businesses.map((business) => {
+            const service = business.kind === "SERVICE";
+            return (
+              <article className="business-entry" key={business.id}>
+                <header className="business-entry-head">
+                  {business.image ? <img className="business-logo" src={business.image} alt="" /> : <span className="business-mark" aria-hidden="true">{businessInitial(business.name)}</span>}
                   <div>
                     <strong>{business.name}</strong>
-                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {business.kind === "SERVICE" ? "Servicios" : "Venta de productos"}</p>
+                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {service ? "Servicios" : "Venta de productos"}</p>
                   </div>
-                </div>
-                <span className="customer-pill">{business.kind === "SERVICE" ? "Servicios" : "Productos"}</span>
-              </div>
+                  <span className="customer-pill">{service ? "Servicios" : "Productos"}</span>
+                </header>
 
-              <div className="customer-contact">
-                <span>Clientes: {business.customerCount}</span>
-                <span>{business.kind === "SERVICE" ? "Stock" : "Productos"}: {business.productCount}</span>
-                <span>Stock crítico: {business.criticalProducts}</span>
-              </div>
+                <dl className="business-entry-stats">
+                  <div><dt>Clientes</dt><dd>{business.customerCount}</dd></div>
+                  <div><dt>{service ? "Stock" : "Productos"}</dt><dd>{business.productCount}</dd></div>
+                  <div><dt>Stock crítico</dt><dd>{business.criticalProducts}</dd></div>
+                  <div><dt>Este mes</dt><dd>{formatMoney(business.salesMonthMinor)}</dd></div>
+                  <div><dt>Hoy</dt><dd>{formatMoney(business.salesTodayMinor)}</dd></div>
+                </dl>
 
-              <div className="customer-actions">
-                <a className="secondary-button" href="/">Tablero</a>
-                <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir negocio</a>
-                {business.kind === "SERVICE" ? null : <a className="secondary-button" href={`/businesses/${business.id}/sales`}>Vender</a>}
-                <a className="secondary-button" href={`/businesses/${business.id}/orders`}>{business.kind === "SERVICE" ? "Reservas" : "Pedidos"}</a>
-                <a className="secondary-button" href={business.kind === "SERVICE" ? `/businesses/${business.id}/stock` : `/businesses/${business.id}/products`}>{business.kind === "SERVICE" ? "Stock" : "Productos"}</a>
-                <a className="secondary-button" href={`/businesses/${business.id}/customers`}>Clientes</a>
-                {business.role === "OWNER" && <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />}
-                {business.role === "OWNER" && <><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button><button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button><button className="text-button" type="button" onClick={() => void archiveBusiness(business)}>Archivar</button></>}
-                <span className="customer-pill">Mes: {formatMoney(business.salesMonthMinor)}</span>
-                <span className="customer-pill">Hoy: {formatMoney(business.salesTodayMinor)}</span>
-              </div>
-            </article>
-          ))}
+                <nav className="business-entry-nav" aria-label={`Accesos de ${business.name}`}>
+                  <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir negocio</a>
+                  {service ? null : <a className="secondary-button" href={`/businesses/${business.id}/sales`}>Vender</a>}
+                  <a className="secondary-button" href={`/businesses/${business.id}/orders`}>{service ? "Reservas" : "Pedidos"}</a>
+                  <a className="secondary-button" href={service ? `/businesses/${business.id}/stock` : `/businesses/${business.id}/products`}>{service ? "Stock" : "Productos"}</a>
+                  <a className="secondary-button" href={`/businesses/${business.id}/customers`}>Clientes</a>
+                  <a className="secondary-button" href="/">Tablero</a>
+                </nav>
+
+                {business.role === "OWNER" && (
+                  <div className="business-entry-owner">
+                    <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />
+                    <div className="business-entry-tools">
+                      <button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button>
+                      <button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button>
+                      <button className="text-button" type="button" onClick={() => setPendingArchive(business)}>Archivar</button>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div className="module-state">Todavía no creaste ningún negocio.</div>
       )}
+      {pendingArchive && <ConfirmModal title="Archivar negocio" message={`¿Archivar ${pendingArchive.name}? Primero descargá el respaldo si necesitás conservarlo fuera de la aplicación.`} onCancel={() => setPendingArchive(null)} onAccept={() => void archiveBusiness(pendingArchive)} />}
     </section>
   );
+}
+
+function businessInitial(name: string) {
+  const letter = name.trim().charAt(0);
+  return letter ? letter.toLocaleUpperCase("es-AR") : "H";
 }
 
 function formatMoney(valueMinor: number) {

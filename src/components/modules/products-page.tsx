@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
@@ -20,6 +21,8 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const [stockPrompt, setStockPrompt] = useState<{ product: Product; direction: "in" | "out" } | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Product | null>(null);
 
   async function load() {
     setLoading(true);
@@ -69,17 +72,17 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
     await load();
   }
 
-  async function adjustStock(product: Product, quantity: number) {
-    const reason = window.prompt(quantity > 0 ? "Motivo de la entrada" : "Motivo de la salida", quantity > 0 ? "Compra" : "Uso");
-    if (reason === null) return;
+  async function adjustStock(product: Product, quantity: number, reason: string) {
     setError("");
     const response = await fetch(`/api/v1/businesses/${businessId}/products/${product.id}/inventory`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quantity, reason }) });
-    if (!response.ok) { setError("No se pudo ajustar el stock. Revisá que haya unidades suficientes."); return; }
+    if (!response.ok) { setError("No se pudo ajustar el stock. Revisá que haya unidades suficientes."); return false; }
+    setStockPrompt(null);
     await load();
+    return true;
   }
 
   async function archiveProduct(product: Product) {
-    if (!window.confirm(stockMode ? `¿Archivar ${product.name}? Deja de aparecer en el stock.` : `¿Archivar ${product.name}? Dejará de aparecer en ventas.`)) return;
+    setArchiveTarget(null);
     const response = await fetch(`/api/v1/businesses/${businessId}/products/${product.id}`, { method: "DELETE" });
     if (!response.ok) { setError("No se pudo archivar."); return; }
     if (editingId === product.id) closeForm();
@@ -92,7 +95,7 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
   return (
     <ModuleLayout eyebrow="Operación" title={stockMode ? "Stock" : "Productos"} description={stockMode ? "Llevá insumos y herramientas. Sumar o restar no mueve la plata: el gasto se carga aparte." : "Gestioná tu catálogo, precios y existencias desde un solo lugar."}>
       <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}>{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button></div>
-      {error && !formOpen && <p className="form-error" role="alert">{error}</p>}
+      {error && !formOpen && !stockPrompt && <p className="form-error" role="alert">{error}</p>}
       {listed.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder={stockMode ? "Nombre o tipo" : "Nombre o tipo"} />}
       {loading ? <div className="module-state">Cargando...</div> : listed.length === 0 ? <div className="module-state">{stockMode ? "Todavía no hay insumos ni herramientas." : "Todavía no hay productos."}</div> : visible.length ? (
         <div className="product-list">
@@ -115,10 +118,10 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
                 {product.costMinor !== null && <span>costo {formatMoney(product.costMinor)}</span>}
               </div>
               <div className="product-actions">
-                <button className="secondary-button" type="button" onClick={() => void adjustStock(product, 1)}>{stockMode ? "Sumar" : "+ Ingresar stock"}</button>
-                <button className="secondary-button" type="button" onClick={() => void adjustStock(product, -1)} disabled={product.stock === 0}>{stockMode ? "Restar" : "- Retirar stock"}</button>
+                <button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product, direction: "in" }); }}>{stockMode ? "Sumar" : "+ Ingresar stock"}</button>
+                <button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product, direction: "out" }); }} disabled={product.stock === 0}>{stockMode ? "Restar" : "- Retirar stock"}</button>
                 <button className="secondary-button" type="button" onClick={() => startEditing(product)}>Editar</button>
-                <button className="text-button" type="button" onClick={() => void archiveProduct(product)}>Archivar</button>
+                <button className="text-button" type="button" onClick={() => setArchiveTarget(product)}>Archivar</button>
               </div>
             </article>
           ))}
@@ -148,7 +151,64 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
           </form>
         </FormModal>
       )}
+      {archiveTarget && <ConfirmModal title="Archivar" message={stockMode ? `¿Archivar ${archiveTarget.name}? Deja de aparecer en el stock.` : `¿Archivar ${archiveTarget.name}? Dejará de aparecer en ventas.`} onCancel={() => setArchiveTarget(null)} onAccept={() => void archiveProduct(archiveTarget)} />}
+      {stockPrompt && <StockAdjustModal product={stockPrompt.product} direction={stockPrompt.direction} stockMode={stockMode} error={error} onCancel={() => { setError(""); setStockPrompt(null); }} onAccept={(quantity, reason) => adjustStock(stockPrompt.product, quantity, reason)} />}
     </ModuleLayout>
+  );
+}
+
+function StockAdjustModal({ product, direction, stockMode, error, onCancel, onAccept }: { product: Product; direction: "in" | "out"; stockMode: boolean; error: string; onCancel: () => void; onAccept: (quantity: number, reason: string) => Promise<boolean> }) {
+  const [movement, setMovement] = useState(direction);
+  const [amount, setAmount] = useState("1");
+  const [reason, setReason] = useState(direction === "in" ? "Compra" : "Uso");
+  const [busy, setBusy] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const inLabel = stockMode ? "Sumar" : "Ingresar";
+  const outLabel = stockMode ? "Restar" : "Retirar";
+
+  function changeMovement(next: "in" | "out") {
+    setMovement(next);
+    setLocalError("");
+    setReason((current) => current === "Compra" || current === "Uso" ? (next === "in" ? "Compra" : "Uso") : current);
+  }
+
+  async function accept(event: FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    const units = Number(amount);
+    if (!Number.isInteger(units) || units < 1) { setLocalError("Ingresá una cantidad entera mayor a cero."); return; }
+    if (movement === "out" && units > product.stock) { setLocalError("No hay tantas unidades para restar."); return; }
+    setBusy(true);
+    setLocalError("");
+    const ok = await onAccept(movement === "in" ? units : -units, reason);
+    if (!ok) setBusy(false);
+  }
+
+  return (
+    <FormModal title="Actualizar stock" onClose={onCancel}>
+      <form className="customer-form dialog-body" onSubmit={(event) => void accept(event)}>
+        <p>{product.name}. Hay {product.stock} unidades.</p>
+        <div className="customer-form-grid">
+          <label className="customer-form-wide">Movimiento
+            <select value={movement} onChange={(event) => changeMovement(event.target.value as "in" | "out")}>
+              <option value="in">{inLabel}</option>
+              <option value="out" disabled={product.stock === 0}>{outLabel}</option>
+            </select>
+          </label>
+          <label className="customer-form-wide">Cantidad
+            <input type="number" min={1} max={movement === "out" ? product.stock : undefined} step={1} value={amount} onChange={(event) => setAmount(event.target.value)} required autoFocus />
+          </label>
+          <label className="customer-form-wide">Motivo
+            <input aria-label="Motivo" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} />
+          </label>
+        </div>
+        {(localError || error) && <p className="form-error" role="alert">{localError || error}</p>}
+        <div className="dialog-actions">
+          <button className="secondary-button" type="button" onClick={onCancel}>Cancelar</button>
+          <button className="auth-submit" type="submit" disabled={busy}>Actualizar stock</button>
+        </div>
+      </form>
+    </FormModal>
   );
 }
 

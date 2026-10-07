@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
 
 type Membership = {
@@ -28,6 +29,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -97,7 +99,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
   }
 
   async function removeMember(membershipId: string) {
-    if (!window.confirm("¿Desea quitar a este miembro del negocio?")) return;
+    setPendingRemoveId(null);
 
     const response = await fetch(`/api/v1/businesses/${businessId}/memberships`, {
       method: "DELETE",
@@ -180,7 +182,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
                     <option value="OWNER">Dueño</option>
                     <option value="EMPLOYEE">Empleado</option>
                   </select>
-                  <button className="text-button" type="button" onClick={() => void removeMember(membership.id)}>Quitar</button>
+                  <button className="text-button" type="button" onClick={() => setPendingRemoveId(membership.id)}>Quitar</button>
                 </div>
               )}
             </article>
@@ -210,6 +212,7 @@ export function TeamPage({ businessId }: { businessId: string }) {
           ))}
         </div>
       )}
+      {pendingRemoveId && <ConfirmModal title="Quitar miembro" message="¿Desea quitar a este miembro del negocio?" onCancel={() => setPendingRemoveId(null)} onAccept={() => void removeMember(pendingRemoveId)} />}
     </section>
   );
 }

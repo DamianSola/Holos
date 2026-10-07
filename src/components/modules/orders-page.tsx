@@ -6,9 +6,10 @@ import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-se
 import { ModuleLayout } from "@/components/modules/customers-page";
 
 type Customer = { id: string; name: string };
-type Product = { id: string; name: string; priceMinor: number };
+type Product = { id: string; name: string; priceMinor: number; catalogKind?: "PRODUCT" | "SUPPLY" | "TOOL" };
 type OrderKind = "PRODUCT" | "SERVICE";
 type OrderStatus = "SCHEDULED" | "DONE" | "CANCELLED";
+type OrderItem = { id: string; productId: string; productName: string; quantity: number; unitPriceMinor: number; totalMinor: number };
 type Order = {
   id: string;
   kind: OrderKind;
@@ -19,21 +20,26 @@ type Order = {
   amountMinor: number | null;
   notes: string | null;
   customer: Customer;
-  product: { id: string; name: string } | null;
+  product: { id: string; name: string; priceMinor: number } | null;
+  items: OrderItem[];
 };
-
-const emptyForm = { kind: "PRODUCT" as OrderKind, customerId: "", productId: "", title: "", quantity: "1", scheduledFor: "", amount: "", notes: "" };
-
-function blankOrder(kind: OrderKind) {
-  return { ...emptyForm, kind };
-}
+type DraftLine = { productId: string; productName: string; quantity: number; unitPriceMinor: number };
 
 export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId: string; businessKind?: "STORE" | "SERVICE" }) {
   const serviceBusiness = businessKind === "SERVICE";
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [form, setForm] = useState(() => blankOrder(serviceBusiness ? "SERVICE" : "PRODUCT"));
+  const [kind, setKind] = useState<OrderKind>(serviceBusiness ? "SERVICE" : "PRODUCT");
+  const [customerId, setCustomerId] = useState("");
+  const [title, setTitle] = useState("");
+  const [scheduledFor, setScheduledFor] = useState("");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<DraftLine[]>([]);
+  const [pickId, setPickId] = useState("");
+  const [pickQty, setPickQty] = useState(1);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderStatus>("SCHEDULED");
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
@@ -85,43 +91,99 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
     return () => { cancelled = true; };
   }, [businessId]);
 
+  const catalog = useMemo(() => products.filter((product) => product.catalogKind !== "SUPPLY" && product.catalogKind !== "TOOL"), [products]);
   const byStatus = useMemo(() => orders.filter((order) => order.status === filter), [orders, filter]);
-  const visible = useMemo(() => byStatus.filter((order) => matchesQuery(query, order.title, order.customer.name, order.notes, order.product?.name)), [byStatus, query]);
+  const visible = useMemo(() => byStatus.filter((order) => matchesQuery(query, order.title, order.customer.name, order.notes, order.product?.name, ...shownLines(order).map((line) => line.productName))), [byStatus, query]);
   const upcoming = orders.filter((order) => order.status === "SCHEDULED");
+  const draftTotal = lines.reduce((total, line) => total + line.unitPriceMinor * line.quantity, 0);
 
-  function chooseProduct(productId: string) {
-    const product = products.find((item) => item.id === productId);
-    setForm((current) => ({
-      ...current,
-      productId,
-      title: product ? product.name : current.title,
-      amount: product && !current.amount ? String(product.priceMinor / 100) : current.amount,
-    }));
+  function resetForm() {
+    setEditingId(null);
+    setKind(serviceBusiness ? "SERVICE" : "PRODUCT");
+    setCustomerId("");
+    setTitle("");
+    setScheduledFor("");
+    setAmount("");
+    setNotes("");
+    setLines([]);
+    setPickId("");
+    setPickQty(1);
+  }
+
+  function openCreate() {
+    resetForm();
+    setError("");
+    setFormOpen(true);
+  }
+
+  function openEdit(order: Order) {
+    setEditingId(order.id);
+    setKind("PRODUCT");
+    setCustomerId(order.customer.id);
+    setScheduledFor(dateInputValue(order.scheduledFor));
+    setNotes(order.notes ?? "");
+    setLines(draftLines(order));
+    setPickId("");
+    setPickQty(1);
+    setError("");
+    setFormOpen(true);
+  }
+
+  function addLine() {
+    const product = catalog.find((item) => item.id === pickId);
+    const quantity = Math.floor(pickQty);
+    if (!product || quantity < 1) return;
+    setLines((current) => {
+      const existing = current.find((line) => line.productId === product.id);
+      if (existing) return current.map((line) => line.productId === product.id ? { ...line, quantity: Math.min(100_000, line.quantity + quantity) } : line);
+      return [...current, { productId: product.id, productName: product.name, quantity: Math.min(100_000, quantity), unitPriceMinor: product.priceMinor }];
+    });
+    setPickId("");
+    setPickQty(1);
+  }
+
+  function changeLineQuantity(productId: string, quantity: number) {
+    if (!Number.isFinite(quantity) || quantity < 1) return;
+    setLines((current) => current.map((line) => line.productId === productId ? { ...line, quantity: Math.min(100_000, Math.floor(quantity)) } : line));
+  }
+
+  function removeLine(productId: string) {
+    setLines((current) => current.length < 2 ? current : current.filter((line) => line.productId !== productId));
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError("");
-    const parsedAmount = form.amount.trim() ? Math.round(Number(form.amount) * 100) : undefined;
-    if (parsedAmount !== undefined && !Number.isFinite(parsedAmount)) {
+    const productOrder = kind === "PRODUCT";
+    if (productOrder && lines.length < 1) {
+      setError("Agregá al menos un producto.");
+      setSaving(false);
+      return;
+    }
+    const parsedAmount = amount.trim() ? Math.round(Number(amount) * 100) : undefined;
+    if (!productOrder && parsedAmount !== undefined && !Number.isFinite(parsedAmount)) {
       setError("El importe no es válido.");
       setSaving(false);
       return;
     }
-    const amount = parsedAmount;
-    const response = await fetch(`/api/v1/businesses/${businessId}/orders`, {
-      method: "POST",
+    const response = await fetch(editingId ? `/api/v1/businesses/${businessId}/orders/${editingId}` : `/api/v1/businesses/${businessId}/orders`, {
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customerId: form.customerId,
-        kind: serviceBusiness ? "SERVICE" : form.kind,
-        title: form.title.trim(),
-        productId: form.kind === "PRODUCT" && form.productId ? form.productId : undefined,
-        quantity: form.kind === "PRODUCT" ? Number(form.quantity) : 1,
-        scheduledFor: form.scheduledFor,
-        amountMinor: amount,
-        notes: form.notes.trim() || undefined,
+      body: JSON.stringify(productOrder ? {
+        customerId,
+        ...(editingId ? {} : { kind: "PRODUCT" as const }),
+        scheduledFor,
+        notes: notes.trim() || undefined,
+        items: lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+      } : {
+        customerId,
+        kind: "SERVICE",
+        title: title.trim(),
+        quantity: 1,
+        scheduledFor,
+        amountMinor: parsedAmount,
+        notes: notes.trim() || undefined,
       }),
     });
     if (!response.ok) {
@@ -130,7 +192,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
       setSaving(false);
       return;
     }
-    setForm(blankOrder(serviceBusiness ? "SERVICE" : "PRODUCT"));
+    resetForm();
     setFilter("SCHEDULED");
     setFormOpen(false);
     setSaving(false);
@@ -157,62 +219,82 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
         {serviceBusiness ? null : <div className="summary-card"><span>Productos</span><strong>{upcoming.filter((order) => order.kind === "PRODUCT").length}</strong></div>}
         <div className="summary-card"><span>Servicios</span><strong>{upcoming.filter((order) => order.kind === "SERVICE").length}</strong></div>
       </div>
-      <div className="customer-actions"><button className="auth-submit" type="button" onClick={() => { setError(""); setFormOpen(true); }}>Nuevo pedido</button></div>
-      {formOpen && <FormModal title="Nuevo pedido" onClose={() => setFormOpen(false)}>
-      <form className="customer-form" onSubmit={(event) => void save(event)}>
-        <div className="customer-form-heading">
-          <div>
-            <h2>{form.kind === "SERVICE" ? "Agendar servicio" : "Nuevo pedido"}</h2>
-            <p>{form.kind === "SERVICE" ? "El cliente pide un trabajo para una fecha." : "El cliente pide un producto para una fecha."}</p>
+      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}>Nuevo pedido</button></div>
+      {formOpen && <FormModal title={editingId ? "Editar pedido" : "Nuevo pedido"} onClose={() => { setFormOpen(false); resetForm(); }}>
+        <form className="customer-form" onSubmit={(event) => void save(event)}>
+          <div className="customer-form-heading">
+            <div>
+              <h2>{editingId ? "Editar pedido" : kind === "SERVICE" ? "Agendar servicio" : "Nuevo pedido"}</h2>
+              <p>{kind === "SERVICE" ? "El cliente pide un trabajo para una fecha." : "El cliente pide productos para una fecha."}</p>
+            </div>
           </div>
-        </div>
-        <div className="customer-form-grid">
-          {serviceBusiness ? null : (
-            <label>Tipo
-              <select value={form.kind} onChange={(event) => setForm((current) => ({ ...current, kind: event.target.value as OrderKind, productId: "" }))}>
-                <option value="PRODUCT">Producto</option>
-                <option value="SERVICE">Servicio</option>
+          <div className="customer-form-grid">
+            {serviceBusiness || editingId ? null : (
+              <label>Tipo
+                <select value={kind} onChange={(event) => setKind(event.target.value as OrderKind)}>
+                  <option value="PRODUCT">Producto</option>
+                  <option value="SERVICE">Servicio</option>
+                </select>
+              </label>
+            )}
+            <label>Cliente
+              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
+                <option value="">Elegir cliente</option>
+                {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
               </select>
             </label>
-          )}
-          <label>Cliente
-            <select value={form.customerId} onChange={(event) => setForm((current) => ({ ...current, customerId: event.target.value }))} required>
-              <option value="">Elegir cliente</option>
-              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-            </select>
-          </label>
-          {form.kind === "PRODUCT" && (
-            <label>Del catálogo
-              <select value={form.productId} onChange={(event) => chooseProduct(event.target.value)}>
-                <option value="">Sin producto cargado</option>
-                {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-              </select>
+            {kind === "SERVICE" && (
+              <label>Servicio
+                <input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={160} placeholder="Corte, arreglo, instalación" />
+              </label>
+            )}
+            <label>{kind === "SERVICE" ? "Fecha" : "Para el"}
+              <input type="date" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} required />
             </label>
-          )}
-          <label>{form.kind === "SERVICE" ? "Servicio" : "Qué pidió"}
-            <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required maxLength={160} placeholder={form.kind === "SERVICE" ? "Corte, arreglo, instalación" : "Remera talle M"} />
-          </label>
-          {form.kind === "PRODUCT" && (
-            <label>Cantidad
-              <input type="number" min="1" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} required />
+            {kind === "SERVICE" && (
+              <label>Importe estimado
+                <input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Opcional" />
+              </label>
+            )}
+            <label className="customer-form-wide">Notas
+              <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} maxLength={1000} />
             </label>
-          )}
-          <label>{form.kind === "SERVICE" ? "Fecha" : "Para el"}
-            <input type="date" value={form.scheduledFor} onChange={(event) => setForm((current) => ({ ...current, scheduledFor: event.target.value }))} required />
-          </label>
-          <label>Importe estimado
-            <input type="number" min="0" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Opcional" />
-          </label>
-          <label className="customer-form-wide">Notas
-            <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={2} maxLength={1000} />
-          </label>
-        </div>
-        {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="auth-submit" type="submit" disabled={saving || customers.length === 0}>{saving ? "Guardando..." : form.kind === "SERVICE" ? "Agendar servicio" : "Agregar pedido"}</button>
-        {customers.length === 0 && <p className="module-description">Primero cargá un cliente.</p>}
-      </form>
+            {kind === "PRODUCT" && (
+              <div className="customer-form-wide">
+                <div className="sale-form">
+                  <label>Producto
+                    <select value={pickId} onChange={(event) => setPickId(event.target.value)}>
+                      <option value="">Elegir producto</option>
+                      {catalog.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                    </select>
+                  </label>
+                  <label>Cantidad
+                    <input type="number" min="1" value={pickQty} onChange={(event) => setPickQty(Number(event.target.value))} />
+                  </label>
+                  <button className="secondary-button" type="button" onClick={addLine} disabled={!pickId || pickQty < 1}>Agregar</button>
+                </div>
+                {lines.length ? (
+                  <div className="cart-list">
+                    {lines.map((line) => (
+                      <div className="cart-row" key={line.productId}>
+                        <span><strong>{line.productName}</strong><small>{formatMoney(line.unitPriceMinor)} c/u</small></span>
+                        <input aria-label={`Cantidad de ${line.productName}`} type="number" min="1" value={line.quantity} onChange={(event) => changeLineQuantity(line.productId, Number(event.target.value))} />
+                        <strong>{formatMoney(line.unitPriceMinor * line.quantity)}</strong>
+                        <button className="text-button" type="button" onClick={() => removeLine(line.productId)} disabled={lines.length < 2}>Quitar</button>
+                      </div>
+                    ))}
+                    <div className="sale-total"><span>Total</span><strong>{formatMoney(draftTotal)}</strong></div>
+                  </div>
+                ) : <div className="module-state">Agregá al menos un producto.</div>}
+              </div>
+            )}
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="auth-submit" type="submit" disabled={saving || customers.length === 0 || (kind === "PRODUCT" && lines.length < 1)}>{saving ? "Guardando..." : editingId ? "Guardar cambios" : kind === "SERVICE" ? "Agendar servicio" : "Agregar pedido"}</button>
+          {customers.length === 0 && <p className="module-description">Primero cargá un cliente.</p>}
+        </form>
       </FormModal>}
-      {error && <p className="form-error" role="alert">{error}</p>}
+      {error && !formOpen && <p className="form-error" role="alert">{error}</p>}
       {orders.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Cliente o pedido" />}
       <div className="customer-actions">
         {(["SCHEDULED", "DONE", "CANCELLED"] as const).map((status) => (
@@ -221,31 +303,52 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
       </div>
       {loading ? <div className="module-state">Cargando...</div> : visible.length ? (
         <div className="customer-list">
-          {visible.map((order) => (
-            <article className="customer-card" key={order.id}>
-              <div className="customer-card-header">
-                <div>
-                  <strong>{order.title}</strong>
-                  <p>{order.customer.name} · {formatDate(order.scheduledFor)}{order.kind === "PRODUCT" ? ` · x${order.quantity}` : ""}</p>
+          {visible.map((order) => {
+            const linesOnCard = shownLines(order);
+            const total = linesOnCard.length ? linesOnCard.reduce((sum, line) => sum + line.totalMinor, 0) : order.amountMinor;
+            return (
+              <article className="customer-card" key={order.id}>
+                <div className="customer-card-header">
+                  <div>
+                    <strong>{linesOnCard.length ? linesOnCard.map((line) => `${line.productName} x${line.quantity}`).join(", ") : order.title}</strong>
+                    <p>{order.customer.name} · {formatDate(order.scheduledFor)}</p>
+                  </div>
+                  <span className="customer-pill">{kindLabel(order.kind)}</span>
                 </div>
-                <span className="customer-pill">{kindLabel(order.kind)}</span>
-              </div>
-              <div className="customer-contact">
-                <span>{statusText(order)}</span>
-                {order.amountMinor !== null && <span>{formatMoney(order.amountMinor)}</span>}
-                {order.notes && <span>{order.notes}</span>}
-              </div>
-              <div className="customer-actions">
-                {order.status === "SCHEDULED" && <button className="secondary-button" type="button" onClick={() => void setStatus(order.id, "DONE")}>{order.kind === "SERVICE" ? "Marcar realizado" : "Marcar entregado"}</button>}
-                {order.status === "SCHEDULED" && <button className="text-button" type="button" onClick={() => void setStatus(order.id, "CANCELLED")}>Cancelar</button>}
-                {order.status !== "SCHEDULED" && <button className="text-button" type="button" onClick={() => void setStatus(order.id, "SCHEDULED")}>Reabrir</button>}
-              </div>
-            </article>
-          ))}
+                <div className="customer-contact">
+                  <span>{statusText(order)}</span>
+                  {total !== null && <span>{formatMoney(total)}</span>}
+                  {order.notes && <span>{order.notes}</span>}
+                </div>
+                <div className="customer-actions">
+                  {order.kind === "PRODUCT" && order.status === "SCHEDULED" && <button className="secondary-button" type="button" onClick={() => openEdit(order)}>Editar</button>}
+                  {order.status === "SCHEDULED" && <button className="secondary-button" type="button" onClick={() => void setStatus(order.id, "DONE")}>{order.kind === "SERVICE" ? "Marcar realizado" : "Marcar entregado"}</button>}
+                  {order.status === "SCHEDULED" && <button className="text-button" type="button" onClick={() => void setStatus(order.id, "CANCELLED")}>Cancelar</button>}
+                  {order.status !== "SCHEDULED" && <button className="text-button" type="button" onClick={() => void setStatus(order.id, "SCHEDULED")}>Reabrir</button>}
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : query.trim() ? <SearchMiss query={query} /> : <div className="module-state">{emptyText(filter)}</div>}
     </ModuleLayout>
   );
+}
+
+function shownLines(order: Order) {
+  if (order.kind !== "PRODUCT") return [];
+  if (order.items?.length) return order.items;
+  if (order.product) {
+    const totalMinor = order.product.priceMinor * order.quantity;
+    return [{ productName: order.product.name, quantity: order.quantity, totalMinor }];
+  }
+  return [];
+}
+
+function draftLines(order: Order): DraftLine[] {
+  if (order.items?.length) return order.items.map((item) => ({ productId: item.productId, productName: item.productName, quantity: item.quantity, unitPriceMinor: item.unitPriceMinor }));
+  if (order.product) return [{ productId: order.product.id, productName: order.product.name, quantity: order.quantity, unitPriceMinor: order.product.priceMinor }];
+  return [];
 }
 
 function filterLabel(status: OrderStatus) {
@@ -272,6 +375,10 @@ function emptyText(filter: OrderStatus) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("es-AR", { dateStyle: "medium" });
+}
+
+function dateInputValue(value: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
 }
 
 function formatMoney(valueMinor: number) {

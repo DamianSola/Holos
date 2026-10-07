@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/layout/app-shell";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 import { MarketingHome } from "@/components/marketing/marketing-home";
 import { BusinessPage } from "@/components/modules/business-page";
 import { workspaceIsOpen } from "@/server/billing/access";
@@ -25,8 +25,8 @@ export default async function Home() {
   const portfolio = await getPortfolioDashboard(user.id);
 
   return (
-    <AppShell businessId={user.memberships[0]?.businessId ?? ""} businessKind={user.memberships[0]?.business.kind ?? "STORE"} userName={user.name ?? user.email}>
+    <WorkspaceShell>
       <BusinessPage initialPortfolio={portfolio} />
-    </AppShell>
+    </WorkspaceShell>
   );
 }

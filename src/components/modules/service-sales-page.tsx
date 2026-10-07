@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmModal } from "@/components/forms/confirm-modal";
+import { DateRangeFilter, datedListPath } from "@/components/forms/date-range-filter";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { applySaleDiscount } from "@/lib/sale-discount";
 import { receiptText } from "@/lib/whatsapp";
@@ -38,13 +40,16 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const savingRef = useRef(false);
 
   async function load() {
     setLoading(true);
     const [customerResponse, salesResponse] = await Promise.all([
       fetch(`/api/v1/businesses/${businessId}/customers`, { cache: "no-store" }),
-      fetch(`/api/v1/businesses/${businessId}/sales`, { cache: "no-store" }),
+      fetch(datedListPath(`/api/v1/businesses/${businessId}/sales`, from, to), { cache: "no-store" }),
     ]);
     if (!customerResponse.ok || !salesResponse.ok) {
       setError("No se pudieron cargar las ventas.");
@@ -62,7 +67,7 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
     async function loadInitialData() {
       const [customerResponse, salesResponse] = await Promise.all([
         fetch(`/api/v1/businesses/${businessId}/customers`, { cache: "no-store" }),
-        fetch(`/api/v1/businesses/${businessId}/sales`, { cache: "no-store" }),
+        fetch(datedListPath(`/api/v1/businesses/${businessId}/sales`, from, to), { cache: "no-store" }),
       ]);
       if (cancelled) return;
       if (!customerResponse.ok || !salesResponse.ok) {
@@ -78,9 +83,11 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
     }
     void loadInitialData();
     return () => { cancelled = true; };
-  }, [businessId]);
+  }, [businessId, from, to]);
 
   const visibleSales = useMemo(() => sales.filter((sale) => matchesQuery(query, sale.customer?.name, sale.place, sale.description, sale.invoice?.number, statusLabel(sale.status))), [sales, query]);
+  const visibleTotal = useMemo(() => visibleSales.reduce((sum, sale) => sum + sale.totalMinor, 0), [visibleSales]);
+  const dated = Boolean(from && to);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,8 +146,7 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
   }
 
   async function deleteSale(saleId: string) {
-    const confirmed = window.confirm("¿Eliminar esta venta? Deja de sumar como ingreso.");
-    if (!confirmed) return;
+    setPendingDeleteId(null);
     setMessage("");
     setError("");
     const response = await fetch(`/api/v1/businesses/${businessId}/sales/${saleId}`, { method: "DELETE" });
@@ -221,10 +227,12 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
             <h2>Historial</h2>
             <p>Servicios cobrados en este negocio.</p>
           </div>
-          <span className="panel-count">{sales.length}</span>
+          <span className="panel-count">{visibleSales.length}</span>
         </div>
-        {sales.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Cliente, lugar o detalle" />}
-        {loading ? <div className="module-state">Cargando...</div> : sales.length === 0 ? <div className="module-state">Todavía no hay ventas. Cuando cobres un servicio, queda acá.</div> : visibleSales.length ? (
+        <DateRangeFilter from={from} to={to} onChange={(nextFrom, nextTo) => { setFrom(nextFrom); setTo(nextTo); }} />
+        <p className="list-total"><span>Total</span><strong>{formatMoney(visibleTotal)}</strong></p>
+        {(sales.length > 0 || query) && <ListSearch value={query} onChange={setQuery} placeholder="Cliente, lugar o detalle" />}
+        {loading ? <div className="module-state">Cargando...</div> : sales.length === 0 ? <div className="module-state">{dated ? "No hay ventas en esas fechas." : "Todavía no hay ventas. Cuando cobres un servicio, queda acá."}</div> : visibleSales.length ? (
           <div className="sales-list">
             {visibleSales.map((sale) => (
               <article className="sale-row" key={sale.id}>
@@ -242,13 +250,14 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
                   {sale.status === "CONFIRMED" && <a className="text-button" href={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket`} target="_blank" rel="noreferrer">Imprimir</a>}
                   {sale.status === "CONFIRMED" && <SendReceiptWhatsapp phone={sale.customer?.phone} text={receiptText({ businessName, customerName: sale.customer?.name ?? "cliente", invoiceNumber: sale.invoice?.number, when: new Date(sale.serviceDate ?? Date.now()), lines: [sale.description, sale.place].filter((line): line is string => Boolean(line)), totalMinor: sale.totalMinor, cae: sale.invoice?.arcaStatus === "AUTHORIZED" ? sale.invoice.cae : null })} pdfUrl={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket?format=pdf`} fileName={`${sale.invoice?.number ?? "comprobante"}.pdf`} />}
                   {sale.invoice && <small>{sale.invoice.number}</small>}
-                  {sale.invoice?.arcaStatus !== "AUTHORIZED" && <button className="text-button" type="button" onClick={() => void deleteSale(sale.id)}>Eliminar</button>}
+                  {sale.invoice?.arcaStatus !== "AUTHORIZED" && <button className="text-button" type="button" onClick={() => setPendingDeleteId(sale.id)}>Eliminar</button>}
                 </div>
               </article>
             ))}
           </div>
         ) : <SearchMiss query={query} />}
       </section>
+      {pendingDeleteId && <ConfirmModal title="Eliminar venta" message="¿Eliminar esta venta? Deja de sumar como ingreso." onCancel={() => setPendingDeleteId(null)} onAccept={() => void deleteSale(pendingDeleteId)} />}
     </ModuleLayout>
   );
 }

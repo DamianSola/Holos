@@ -1,14 +1,14 @@
 import { TeamPage } from "@/components/modules/team-page";
-import { AppShell } from "@/components/layout/app-shell";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 import { requireBusinessPage } from "@/server/billing/access";
 
 export default async function TeamRoute({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = await params;
-  const { user, membership } = await requireBusinessPage(businessId);
+  await requireBusinessPage(businessId);
 
   return (
-    <AppShell businessId={businessId} businessKind={membership.business.kind} userName={user.name ?? user.email}>
+    <WorkspaceShell businessId={businessId}>
       <TeamPage businessId={businessId} />
-    </AppShell>
+    </WorkspaceShell>
   );
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { coversPeriod, movementWindows, type MovementPeriod } from "@/lib/movement-period";
 
 export async function getPortfolioDashboard(userId: string) {
   const memberships = await prisma.membership.findMany({
@@ -74,25 +75,21 @@ function changePercent(current: number, previous: number) {
   return Math.round(((current - previous) / Math.abs(previous)) * 100);
 }
 
-export async function getBusinessDashboard(businessId: string) {
-  const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+export async function getBusinessDashboard(businessId: string, now = new Date()) {
+  const windows = movementWindows(now);
+  const rangeStart = earliest(windows.month.start, windows.week.start);
+  const rangeEnd = latest(windows.month.end, windows.week.end);
 
-  const [monthSales, todaySales, monthPayments, todayPayments, productsSold, customers, criticalProducts, activity, productCount, supplierCount, memberCount, monthExpenses, recentSales, recentPayments, scheduledServices, business, members] = await prisma.$transaction([
-    prisma.sale.aggregate({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
-    prisma.sale.aggregate({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: startOfDay } }, _sum: { totalMinor: true } }),
-    prisma.orderPayment.aggregate({ where: { businessId, paidAt: { gte: startOfMonth } }, _sum: { amountMinor: true } }),
-    prisma.orderPayment.aggregate({ where: { businessId, paidAt: { gte: startOfDay } }, _sum: { amountMinor: true } }),
-    prisma.saleItem.aggregate({ where: { sale: { businessId, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } } }, _sum: { quantity: true } }),
+  const [periodSales, periodPayments, periodExpenses, customers, criticalProducts, activity, productCount, supplierCount, memberCount, recentSales, recentPayments, scheduledServices, business, members] = await prisma.$transaction([
+    prisma.sale.findMany({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: rangeStart, lt: rangeEnd } }, select: { totalMinor: true, confirmedAt: true, items: { select: { quantity: true } } } }),
+    prisma.orderPayment.findMany({ where: { businessId, paidAt: { gte: rangeStart, lt: rangeEnd } }, select: { amountMinor: true, paidAt: true } }),
+    prisma.expense.findMany({ where: { businessId, deletedAt: null, expenseDate: { gte: rangeStart, lt: rangeEnd } }, select: { amountMinor: true, expenseDate: true } }),
     prisma.customer.count({ where: { businessId, deletedAt: null } }),
     prisma.product.count({ where: { businessId, status: "ACTIVE", deletedAt: null, stock: { lte: prisma.product.fields.minimumStock } } }),
     prisma.activityEvent.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.product.count({ where: { businessId, status: "ACTIVE", deletedAt: null } }),
     prisma.supplier.count({ where: { businessId, deletedAt: null } }),
     prisma.membership.count({ where: { businessId, deletedAt: null } }),
-    prisma.expense.aggregate({ where: { businessId, deletedAt: null, expenseDate: { gte: startOfMonth } }, _sum: { amountMinor: true } }),
     prisma.sale.findMany({ where: { businessId }, include: { customer: { select: { name: true } }, invoice: { select: { number: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
     prisma.orderPayment.findMany({ where: { businessId }, include: { order: { select: { title: true, customer: { select: { name: true } } } } }, orderBy: { paidAt: "desc" }, take: 8 }),
     prisma.customerOrder.count({ where: { businessId, kind: "SERVICE", status: "SCHEDULED" } }),
@@ -100,21 +97,48 @@ export async function getBusinessDashboard(businessId: string) {
     prisma.membership.findMany({ where: { businessId, deletedAt: null }, include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { createdAt: "asc" } }),
   ]);
 
+  const movement = {
+    month: movementTotals("month"),
+    week: movementTotals("week"),
+    day: movementTotals("day"),
+  };
+
+  function movementTotals(period: MovementPeriod) {
+    const window = windows[period];
+    const sales = periodSales.filter((sale) => sale.confirmedAt && coversPeriod(sale.confirmedAt, window));
+    const payments = periodPayments.filter((payment) => coversPeriod(payment.paidAt, window));
+    const expenses = periodExpenses.filter((expense) => coversPeriod(expense.expenseDate, window));
+    return {
+      incomeMinor: sales.reduce((total, sale) => total + sale.totalMinor, 0) + payments.reduce((total, payment) => total + payment.amountMinor, 0),
+      expensesMinor: expenses.reduce((total, expense) => total + expense.amountMinor, 0),
+      productsSold: sales.reduce((total, sale) => total + sale.items.reduce((units, item) => units + item.quantity, 0), 0),
+    };
+  }
+
   return {
-    salesMonthMinor: (monthSales._sum.totalMinor ?? 0) + (monthPayments._sum.amountMinor ?? 0),
-    salesTodayMinor: (todaySales._sum.totalMinor ?? 0) + (todayPayments._sum.amountMinor ?? 0),
-    productsSold: productsSold._sum.quantity ?? 0,
+    movement,
+    salesMonthMinor: movement.month.incomeMinor,
+    salesTodayMinor: movement.day.incomeMinor,
+    productsSold: movement.month.productsSold,
     customers,
     criticalProducts,
     activity,
     productCount,
     supplierCount,
     memberCount,
-    expensesMonthMinor: monthExpenses._sum.amountMinor ?? 0,
+    expensesMonthMinor: movement.month.expensesMinor,
     scheduledServices,
     recentSales,
     recentPayments,
     business,
     members,
   };
+}
+
+function earliest(left: Date, right: Date) {
+  return left < right ? left : right;
+}
+
+function latest(left: Date, right: Date) {
+  return left > right ? left : right;
 }

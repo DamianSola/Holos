@@ -109,6 +109,28 @@ export const saleSchema = z.object({
   if (new Set(ids).size !== ids.length) context.addIssue({ code: "custom", path: ["items"], message: "Cada producto debe aparecer una sola vez." });
 });
 
+const orderLineSchema = z.object({ productId: z.string().uuid(), quantity: z.number().int().positive().max(100_000) }).strict();
+
+function rejectRepeatedProducts(items: Array<{ productId: string }>, context: { addIssue: (issue: { code: "custom"; path: string[]; message: string }) => void }) {
+  const ids = items.map((item) => item.productId);
+  if (new Set(ids).size !== ids.length) context.addIssue({ code: "custom", path: ["items"], message: "Cada producto debe aparecer una sola vez." });
+}
+
+export const productOrderCreateSchema = z.object({
+  customerId: z.string().uuid(),
+  kind: z.literal("PRODUCT"),
+  scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().trim().max(1000).optional(),
+  items: z.array(orderLineSchema).min(1).max(100),
+}).strict().superRefine((order, context) => rejectRepeatedProducts(order.items, context));
+
+export const productOrderUpdateSchema = z.object({
+  customerId: z.string().uuid(),
+  scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().trim().max(1000).optional(),
+  items: z.array(orderLineSchema).min(1).max(100),
+}).strict().superRefine((order, context) => rejectRepeatedProducts(order.items, context));
+
 export const customerOrderSchema = z.object({
   customerId: z.string().uuid(),
   kind: z.enum(["PRODUCT", "SERVICE"]),
@@ -164,11 +186,14 @@ export const expenseSchema = z.object({
   notes: z.string().trim().max(1000).optional(),
 }).strict();
 
+const taskItemTextSchema = z.string().trim().min(1).max(160);
+
 export const taskSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(2000).optional(),
   assigneeId: z.string().uuid().optional(),
   dueDate: z.string().datetime().optional(),
+  items: z.array(taskItemTextSchema).max(50).optional(),
 }).strict();
 
 export const taskUpdateSchema = z.object({
@@ -177,7 +202,18 @@ export const taskUpdateSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   assigneeId: z.string().uuid().optional(),
   dueDate: z.string().datetime().nullable().optional(),
-}).strict().refine((value) => Object.keys(value).length > 0, "Debe enviar al menos un cambio.");
+  addItem: taskItemTextSchema.optional(),
+  itemId: z.string().uuid().optional(),
+  done: z.boolean().optional(),
+}).strict().superRefine((value, context) => {
+  if (Object.keys(value).length === 0) context.addIssue({ code: "custom", message: "Debe enviar al menos un cambio." });
+  const toggling = value.itemId !== undefined || value.done !== undefined;
+  if (value.itemId !== undefined && value.done === undefined) context.addIssue({ code: "custom", path: ["done"], message: "Indicá si el ítem queda hecho." });
+  if (value.done !== undefined && value.itemId === undefined) context.addIssue({ code: "custom", path: ["itemId"], message: "Indicá qué ítem se tilda." });
+  const editingTask = value.status !== undefined || value.title !== undefined || value.description !== undefined || value.assigneeId !== undefined || value.dueDate !== undefined;
+  if (toggling && (editingTask || value.addItem !== undefined)) context.addIssue({ code: "custom", message: "El tilde del ítem se envía solo." });
+  if (value.addItem !== undefined && editingTask) context.addIssue({ code: "custom", message: "El ítem nuevo se envía solo." });
+});
 
 export const fiscalProfileSchema = z.object({
   legalName: z.string().trim().min(1).max(160),

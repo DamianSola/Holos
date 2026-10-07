@@ -1,24 +1,27 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { HolosLogo } from "@/components/brand/holos-logo";
+import { rememberBusiness, type ShellBusiness } from "@/lib/business-context";
 
 type SidebarProps = {
   businessId: string;
   businessKind?: "STORE" | "SERVICE";
+  businessName?: string;
+  businesses?: ShellBusiness[];
   isOpen: boolean;
   onClose: () => void;
 };
 
 type NavItem = { label: string; href: string };
 
-export function Sidebar({ businessId, businessKind = "STORE", isOpen, onClose }: SidebarProps) {
+export function Sidebar({ businessId, businessKind = "STORE", businessName = "", businesses = [], isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const service = businessKind === "SERVICE";
+  const name = businessName || businesses.find((business) => business.id === businessId)?.name || "Este negocio";
   const operation: NavItem[] = businessId
     ? [
-        { label: "Tablero", href: "/" },
-        { label: "Este negocio", href: `/businesses/${businessId}` },
         ...(service ? [] : [{ label: "Ventas", href: `/businesses/${businessId}/sales` }]),
         { label: service ? "Reservas" : "Pedidos", href: `/businesses/${businessId}/orders` },
         ...(service ? [{ label: "Stock", href: `/businesses/${businessId}/stock` }] : [{ label: "Productos", href: `/businesses/${businessId}/products` }]),
@@ -26,7 +29,7 @@ export function Sidebar({ businessId, businessKind = "STORE", isOpen, onClose }:
         { label: "Proveedores", href: `/businesses/${businessId}/suppliers` },
         { label: "Gastos", href: `/businesses/${businessId}/expenses` },
       ]
-    : [{ label: "Tablero", href: "/" }];
+    : [];
   const admin: NavItem[] = businessId
     ? [
         { label: "Facturación", href: `/businesses/${businessId}/fiscal` },
@@ -50,7 +53,26 @@ export function Sidebar({ businessId, businessKind = "STORE", isOpen, onClose }:
         <a className="sidebar-brand" href="/" onClick={onClose}>
           <HolosLogo />
         </a>
-        <NavGroup label="Operación" items={operation} pathname={pathname} onClose={onClose} />
+        <div className="sidebar-group">
+          <div className="sidebar-section-label">Operación</div>
+          <nav>
+            <ul className="navigation-list">
+              <NavLink item={{ label: "Tablero", href: "/" }} pathname={pathname} onClose={onClose} />
+              {businessId ? (
+                <BusinessSwitch
+                  businessId={businessId}
+                  name={name}
+                  businesses={businesses}
+                  pathname={pathname}
+                  onClose={onClose}
+                />
+              ) : null}
+              {operation.map((item) => (
+                <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
+              ))}
+            </ul>
+          </nav>
+        </div>
         {admin.length > 0 && <NavGroup label="Administración" items={admin} pathname={pathname} onClose={onClose} />}
         <NavGroup label="Cuenta" items={account} pathname={pathname} onClose={onClose} />
         <div className="sidebar-footer">
@@ -62,25 +84,106 @@ export function Sidebar({ businessId, businessKind = "STORE", isOpen, onClose }:
   );
 }
 
+function BusinessSwitch({
+  businessId,
+  name,
+  businesses,
+  pathname,
+  onClose,
+}: {
+  businessId: string;
+  name: string;
+  businesses: ShellBusiness[];
+  pathname: string;
+  onClose: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLLIElement>(null);
+  const others = businesses.filter((business) => business.id !== businessId);
+  const href = `/businesses/${businessId}`;
+  const active = pathname === href;
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <li className={`business-switch${open ? " is-open" : ""}`} ref={rootRef}>
+      <a className={`navigation-link${active ? " is-active" : ""}`} href={href} aria-current={active ? "page" : undefined} onClick={onClose}>
+        <span className="nav-mark" aria-hidden="true" />
+        <span className="business-switch-name">{name}</span>
+      </a>
+      {others.length > 0 && (
+        <button
+          className="business-switch-toggle"
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label="Otros negocios"
+          onClick={() => setOpen((value) => !value)}
+        />
+      )}
+      {open && others.length > 0 && (
+        <ul className="business-switch-menu" role="menu">
+          {others.map((business) => (
+            <li key={business.id} role="none">
+              <a
+                role="menuitem"
+                href={`/businesses/${business.id}`}
+                onClick={() => {
+                  rememberBusiness(business.id);
+                  onClose();
+                }}
+              >
+                {business.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 function NavGroup({ label, items, pathname, onClose }: { label: string; items: NavItem[]; pathname: string; onClose: () => void }) {
   return (
     <div className="sidebar-group">
       <div className="sidebar-section-label">{label}</div>
       <nav>
         <ul className="navigation-list">
-          {items.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname === item.href;
-            return (
-              <li key={item.href}>
-                <a className={`navigation-link${active ? " is-active" : ""}`} href={item.href} aria-current={active ? "page" : undefined} onClick={onClose}>
-                  <span className="nav-mark" aria-hidden="true" />
-                  {item.label}
-                </a>
-              </li>
-            );
-          })}
+          {items.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
+          ))}
         </ul>
       </nav>
     </div>
+  );
+}
+
+function NavLink({ item, pathname, onClose }: { item: NavItem; pathname: string; onClose: () => void }) {
+  const active = item.href === "/" ? pathname === "/" : pathname === item.href;
+  return (
+    <li>
+      <a className={`navigation-link${active ? " is-active" : ""}`} href={item.href} aria-current={active ? "page" : undefined} onClick={onClose}>
+        <span className="nav-mark" aria-hidden="true" />
+        {item.label}
+      </a>
+    </li>
   );
 }

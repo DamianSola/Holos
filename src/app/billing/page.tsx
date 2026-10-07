@@ -1,4 +1,4 @@
-import { AppShell } from "@/components/layout/app-shell";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 import { BillingPage } from "@/components/modules/billing-page";
 import { getSessionUser } from "@/server/auth/session";
 import { redirect } from "next/navigation";
@@ -9,10 +9,9 @@ export default async function BillingRoute({ searchParams }: { searchParams: Pro
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const query = await searchParams;
-  const membership = user.memberships[0];
   return (
-    <AppShell businessId={membership?.businessId ?? ""} businessKind={membership?.business.kind ?? "STORE"} userName={user.name ?? user.email}>
+    <WorkspaceShell>
       <BillingPage ownerBlocked={query.bloqueado === "dueno"} paymentState={query.pago ?? ""} />
-    </AppShell>
+    </WorkspaceShell>
   );
 }

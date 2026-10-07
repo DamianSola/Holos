@@ -1,4 +1,4 @@
-import { AppShell } from "@/components/layout/app-shell";
+import { WorkspaceShell } from "@/components/layout/workspace-shell";
 import { ProfilePage } from "@/components/modules/profile-page";
 import { getSessionUser } from "@/server/auth/session";
 import { redirect } from "next/navigation";
@@ -7,10 +7,9 @@ export default async function ProfileRoute() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const membership = user.memberships[0];
   return (
-    <AppShell businessId={membership?.businessId ?? user.memberships[0]?.businessId ?? ""} businessKind={membership?.business.kind ?? "STORE"} userName={user.name ?? user.email}>
+    <WorkspaceShell>
       <ProfilePage />
-    </AppShell>
+    </WorkspaceShell>
   );
 }

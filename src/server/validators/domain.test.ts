@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, orderPaymentSchema, productSchema, productUpdateSchema, saleSchema, serviceReservationSchema, serviceSaleSchema, stockItemSchema, supplierSchema, taskSchema, userProfileUpdateSchema } from "@/server/validators/domain";
+import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, orderPaymentSchema, productOrderCreateSchema, productSchema, productUpdateSchema, saleSchema, serviceReservationSchema, serviceSaleSchema, stockItemSchema, supplierSchema, taskSchema, taskUpdateSchema, userProfileUpdateSchema } from "@/server/validators/domain";
 
 describe("domain input validation", () => {
   it("accepts a valid product with minor-unit pricing", () => {
@@ -91,10 +91,23 @@ describe("domain input validation", () => {
     expect(customerOrderSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", title: "Remera", quantity: 2, scheduledFor: "2026-10-03" }).success).toBe(true);
     expect(customerOrderSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "SERVICE", title: "Arreglo", scheduledFor: "2026-10-03" }).success).toBe(true);
     expect(customerOrderSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "SERVICE", title: "", scheduledFor: "mañana" }).success).toBe(false);
+    const line = { productId: "00000000-0000-4000-8000-000000000002", quantity: 1 };
+    const other = { productId: "00000000-0000-4000-8000-000000000003", quantity: 2 };
+    expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [line, other] }).success).toBe(true);
+    expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [] }).success).toBe(false);
+    expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [line, line] }).success).toBe(false);
   });
 
   it("accepts tasks with optional assignment and rejects empty titles", () => {
     expect(taskSchema.safeParse({ title: "Revisar stock" }).success).toBe(true);
     expect(taskSchema.safeParse({ title: "" }).success).toBe(false);
+    expect(taskSchema.safeParse({ title: "Revisar stock", items: ["Llamar", "Comprar", "Avisar"] }).success).toBe(true);
+    expect(taskSchema.safeParse({ title: "Revisar stock", items: [] }).success).toBe(true);
+    expect(taskSchema.safeParse({ title: "Revisar stock", items: ["  "] }).success).toBe(false);
+    expect(taskUpdateSchema.safeParse({ status: "DONE" }).success).toBe(true);
+    expect(taskUpdateSchema.safeParse({ addItem: "Llamar" }).success).toBe(true);
+    expect(taskUpdateSchema.safeParse({ itemId: "00000000-0000-4000-8000-000000000004", done: false }).success).toBe(true);
+    expect(taskUpdateSchema.safeParse({ itemId: "00000000-0000-4000-8000-000000000004" }).success).toBe(false);
+    expect(taskUpdateSchema.safeParse({ done: true }).success).toBe(false);
   });
 });

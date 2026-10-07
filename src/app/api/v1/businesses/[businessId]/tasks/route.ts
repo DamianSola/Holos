@@ -6,6 +6,11 @@ import { taskSchema } from "@/server/validators/domain";
 type Context = { params: Promise<{ businessId: string }> };
 
 const userSelect = { id: true, name: true, email: true } as const;
+const taskInclude = {
+  createdBy: { select: userSelect },
+  assignee: { select: userSelect },
+  items: { orderBy: { position: "asc" as const }, select: { id: true, text: true, done: true } },
+} as const;
 
 export async function GET(_request: Request, context: Context) {
   const { businessId } = await context.params;
@@ -14,7 +19,7 @@ export async function GET(_request: Request, context: Context) {
 
   const tasks = await prisma.task.findMany({
     where: { businessId, status: { not: "ARCHIVED" } },
-    include: { createdBy: { select: userSelect }, assignee: { select: userSelect } },
+    include: taskInclude,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
@@ -43,8 +48,9 @@ export async function POST(request: Request, context: Context) {
           title: parsed.data.title,
           description: parsed.data.description || null,
           dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+          items: parsed.data.items?.length ? { create: parsed.data.items.map((text, position) => ({ text, position })) } : undefined,
         },
-        include: { createdBy: { select: userSelect }, assignee: { select: userSelect } },
+        include: taskInclude,
       });
 
       await tx.notification.create({

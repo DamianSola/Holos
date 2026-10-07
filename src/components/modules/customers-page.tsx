@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { WhatsappLink } from "@/components/whatsapp-link";
@@ -20,6 +21,7 @@ export function CustomersPage({ businessId }: { businessId: string }) {
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -84,7 +86,7 @@ export function CustomersPage({ businessId }: { businessId: string }) {
   }
 
   async function deleteCustomer(customerId: string) {
-    if (!window.confirm("¿Desea eliminar este cliente? Se ocultará del negocio.")) return;
+    setPendingDeleteId(null);
     const response = await fetch(`/api/v1/businesses/${businessId}/customers/${customerId}`, { method: "DELETE" });
     if (!response.ok) { setError("No se pudo eliminar el cliente."); return; }
     if (editingId === customerId) resetForm();
@@ -97,7 +99,8 @@ export function CustomersPage({ businessId }: { businessId: string }) {
     {formOpen && <FormModal title={editingId ? "Editar cliente" : "Nuevo cliente"} onClose={resetForm}><form className="customer-form" onSubmit={saveCustomer}><div className="customer-form-grid"><label>Nombre<input value={form.name} onChange={(event) => updateForm("name", event.target.value)} required maxLength={160} /></label><label>Email<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="cliente@ejemplo.com" /></label><label>Teléfono<input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} placeholder="+54 ..." maxLength={40} /></label><label className="customer-form-wide">Notas<textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} rows={3} maxLength={1000} /></label></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : editingId ? "Guardar cliente" : "Agregar cliente"}</button></form></FormModal>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {items.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Nombre, teléfono o email" />}
-    {loading ? <LoadingState /> : items.length === 0 ? <EmptyState text="Todavía no hay clientes." /> : visible.length ? <div className="customer-list">{visible.map((customer) => <article className="customer-card" key={customer.id}><div className="customer-card-header"><div><strong>{customer.name}</strong>{customer.notes && <p>{customer.notes}</p>}</div><div className="customer-pill-row"><span className="customer-pill">{customer.sales.length} ventas</span></div></div><div className="customer-contact"><span>{customer.email ?? "Sin email"}</span><span>{customer.phone ?? "Sin teléfono"}</span></div><div className="customer-actions"><WhatsappLink phone={customer.phone} /><button className="secondary-button" type="button" onClick={() => startEditing(customer)}>Editar</button><button className="text-button" type="button" onClick={() => void deleteCustomer(customer.id)}>Eliminar</button></div></article>)}</div> : <SearchMiss query={query} />}
+    {loading ? <LoadingState /> : items.length === 0 ? <EmptyState text="Todavía no hay clientes." /> : visible.length ? <div className="customer-list">{visible.map((customer) => <article className="customer-card" key={customer.id}><div className="customer-card-header"><div><strong>{customer.name}</strong>{customer.notes && <p>{customer.notes}</p>}</div><div className="customer-pill-row"><span className="customer-pill">{customer.sales.length} ventas</span></div></div><div className="customer-contact"><span>{customer.email ?? "Sin email"}</span><span>{customer.phone ?? "Sin teléfono"}</span></div><div className="customer-actions"><WhatsappLink phone={customer.phone} /><button className="secondary-button" type="button" onClick={() => startEditing(customer)}>Editar</button><button className="text-button" type="button" onClick={() => setPendingDeleteId(customer.id)}>Eliminar</button></div></article>)}</div> : <SearchMiss query={query} />}
+    {pendingDeleteId && <ConfirmModal title="Eliminar cliente" message="¿Desea eliminar este cliente? Se ocultará del negocio." onCancel={() => setPendingDeleteId(null)} onAccept={() => void deleteCustomer(pendingDeleteId)} />}
   </ModuleLayout>;
 }
 

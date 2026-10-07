@@ -1,3 +1,4 @@
+import { inclusiveCivilRange } from "@/lib/movement-period";
 import { applySaleDiscount, type SaleDiscount } from "@/lib/sale-discount";
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
@@ -12,12 +13,44 @@ function discountFromInput(input: { kind: "NONE" } | { kind: "PERCENT"; percent:
 
 type Context = { params: Promise<{ businessId: string }> };
 
-export async function GET(_request: Request, context: Context) {
+export async function GET(request: Request, context: Context) {
   const { businessId } = await context.params;
   const access = await authorizeBusiness(businessId);
   if ("response" in access) return access.response;
-  const sales = await prisma.sale.findMany({ where: { businessId }, include: { customer: true, items: true, invoice: true }, orderBy: { createdAt: "desc" }, take: 100 });
+  const range = readRange(request);
+  if (range === "invalid") return errorResponse(400, "INVALID_DATE", "La fecha no es válida.");
+  const service = access.membership.business.kind === "SERVICE";
+  const sales = await prisma.sale.findMany({
+    where: range ? { businessId, OR: service ? serviceDateWhere(range.start, range.end) : storeDateWhere(range.start, range.end) } : { businessId },
+    include: { customer: true, items: true, invoice: true },
+    orderBy: { createdAt: "desc" },
+    ...(range ? {} : { take: 100 }),
+  });
   return Response.json({ items: sales });
+}
+
+function readRange(request: Request) {
+  const url = new URL(request.url);
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  if (!from && !to) return null;
+  if (!from || !to) return "invalid" as const;
+  return inclusiveCivilRange(from, to) ?? "invalid";
+}
+
+function storeDateWhere(start: Date, end: Date) {
+  return [
+    { confirmedAt: { gte: start, lt: end } },
+    { confirmedAt: null, createdAt: { gte: start, lt: end } },
+  ];
+}
+
+function serviceDateWhere(start: Date, end: Date) {
+  return [
+    { serviceDate: { gte: start, lt: end } },
+    { serviceDate: null, confirmedAt: { gte: start, lt: end } },
+    { serviceDate: null, confirmedAt: null, createdAt: { gte: start, lt: end } },
+  ];
 }
 
 export async function POST(request: Request, context: Context) {

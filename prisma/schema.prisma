@@ -327,12 +327,29 @@ model CustomerOrder {
   customer  Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
   createdBy User           @relation("OrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
   product   Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  items     OrderItem[]
   payments  OrderPayment[]
   invoice   Invoice?
 
   @@index([businessId, status, scheduledFor])
   @@index([businessId, customerId])
   @@index([createdById])
+}
+
+model OrderItem {
+  id             String @id @default(uuid()) @db.Uuid
+  orderId        String @db.Uuid
+  productId      String @db.Uuid
+  productName    String
+  quantity       Int
+  unitPriceMinor Int
+  totalMinor     Int
+
+  order   CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, productId])
+  @@index([productId])
 }
 
 model OrderPayment {
@@ -371,9 +388,23 @@ model Task {
   createdBy User            @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
   assignee  User            @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
   notifications Notification[]
+  items     TaskItem[]
 
   @@index([businessId, status, createdAt])
   @@index([businessId, assigneeId, status])
+}
+
+model TaskItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  text      String
+  done      Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, position])
 }
 
 model Notification {
@@ -412,8 +443,9 @@ model Product {
 
   business  Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
   movements InventoryMovement[]
-  saleItems SaleItem[]
-  orders    CustomerOrder[]
+  saleItems  SaleItem[]
+  orderItems OrderItem[]
+  orders     CustomerOrder[]
 
   @@index([businessId, status])
   @@index([businessId, name])
