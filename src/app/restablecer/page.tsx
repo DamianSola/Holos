@@ -33,7 +33,7 @@ function ResetForm() {
   }
 
   return (
-    <AuthPage title="Elegí una contraseña nueva." description="Tiene que tener al menos 12 caracteres. Al guardarla, las sesiones anteriores se cierran." submitLabel={loading ? "Guardando..." : "Guardar contraseña"} error={error} notice={notice} onSubmit={onSubmit} footerHref="/login" footerLabel="Ir a ingresar">
+    <AuthPage title="Elegí una contraseña nueva." submitLabel={loading ? "Guardando..." : "Guardar contraseña"} error={error} notice={notice} onSubmit={onSubmit} footerHref="/login" footerLabel="Ir a ingresar">
       <PasswordField label="Contraseña nueva" name="password" required minLength={12} maxLength={128} autoComplete="new-password" />
     </AuthPage>
   );

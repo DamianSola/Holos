@@ -83,7 +83,6 @@ export function ProfilePage() {
     <section className="module-page">
       <p className="eyebrow">Cuenta</p>
       <h1>Perfil</h1>
-      <p className="module-description">Actualizá tus datos personales y revisá los negocios a los que tenés acceso.</p>
 
       <div className="customer-summary">
         <div className="summary-card"><span>Estado</span><strong>{profile.status}</strong></div>
@@ -95,7 +94,6 @@ export function ProfilePage() {
         <div className="customer-form-heading">
           <div>
             <h2>Datos personales</h2>
-            <p>Actualizá tu información de acceso.</p>
           </div>
         </div>
         <div className="customer-form-grid">

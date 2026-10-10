@@ -70,7 +70,6 @@ export function BillingPage({ ownerBlocked, paymentState }: { ownerBlocked: bool
     <section className="module-page">
       <p className="eyebrow">Cuenta</p>
       <h1>{billing.planName}</h1>
-      <p className="module-description">{billing.trialDays} días de prueba. Después, {price} cubren {billing.periodDays} días. El pago entra por Mercado Pago y, si pagás antes de que venza, los días se suman.</p>
       {ownerBlocked && <p className="form-error" role="alert">El dueño de ese negocio tiene que activar Holos. Vos no podés pagar por esa cuenta.</p>}
       {paymentState === "ok" && <p className="form-success" role="status">Si el pago fue aprobado, el plan queda activo en unos segundos. Actualizá la página.</p>}
       {paymentState === "pendiente" && <p className="form-success" role="status">El pago quedó pendiente. El plan se activa cuando Mercado Pago lo acredita.</p>}
@@ -97,7 +96,6 @@ export function BillingPage({ ownerBlocked, paymentState }: { ownerBlocked: bool
       </article>
 
       <div className="portfolio-section-heading"><div><h2>Tus datos</h2></div></div>
-      <p className="module-description">Aunque el plan esté vencido, podés llevarte el respaldo de cada negocio. El ticket de una venta se imprime desde Ventas mientras el plan está activo.</p>
       {billing.businesses.length ? (
         <div className="customer-list">
           {billing.businesses.map((business) => (

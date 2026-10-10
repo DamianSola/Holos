@@ -28,7 +28,7 @@ export async function POST(_request: Request, context: Context) {
         business,
         customer: order.customer,
         sale: { id: order.id, totalMinor: order.amountMinor, createdAt: order.createdAt },
-        items: [{ productName: order.title, quantity: 1, unitPriceMinor: order.amountMinor, totalMinor: order.amountMinor }],
+        items: [{ productName: order.title.trim() || order.customer.name, quantity: 1, unitPriceMinor: order.amountMinor, totalMinor: order.amountMinor }],
       });
       const created = await tx.invoice.create({
         data: {
@@ -43,7 +43,7 @@ export async function POST(_request: Request, context: Context) {
           arcaStatus: issued.status,
           externalRef: issued.externalReference ?? null,
           metadata: issued.metadata ?? null,
-          items: { create: [{ description: order.title, quantity: 1, unitPriceMinor: order.amountMinor, totalMinor: order.amountMinor }] },
+          items: { create: [{ description: order.title.trim() || order.customer.name, quantity: 1, unitPriceMinor: order.amountMinor, totalMinor: order.amountMinor }] },
         },
       });
       await tx.activityEvent.create({

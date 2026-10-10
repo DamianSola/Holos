@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
+import { buenosAiresDate, buenosAiresTime } from "@/lib/reservation-schedule";
 import { paidMinor } from "@/lib/reservation-money";
 import { buildProductLines } from "@/server/orders/product-lines";
+import { checkReservationFit } from "@/server/orders/reservation-booking";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
 import { businessIdSchema, customerOrderStatusSchema, productOrderUpdateSchema, serviceReservationUpdateSchema } from "@/server/validators/domain";
@@ -48,21 +50,39 @@ export async function PATCH(request: Request, context: Context) {
     }
 
     const now = new Date();
-    const order = await prisma.customerOrder.update({
-      where: { id: orderId },
-      data: {
-        customerId,
-        title: parsed.data.title,
-        description: parsed.data.title,
-        place: parsed.data.place,
-        amountMinor: parsed.data.amountMinor,
-        scheduledFor: parsed.data.scheduledFor ? new Date(`${parsed.data.scheduledFor}T12:00:00`) : undefined,
-        status: parsed.data.status,
-        completedAt: parsed.data.status === undefined ? undefined : parsed.data.status === "DONE" ? now : null,
-        cancelledAt: parsed.data.status === undefined ? undefined : parsed.data.status === "CANCELLED" ? now : null,
-      },
-      include: orderInclude,
+    const nextStatus = parsed.data.status ?? current.status;
+    const date = parsed.data.scheduledFor ?? buenosAiresDate(current.scheduledFor);
+    const startsAt = parsed.data.startsAt ?? (current.bookedAs === "TURN" ? buenosAiresTime(current.scheduledFor) : null);
+    const saved = await prisma.$transaction(async (tx) => {
+      const fit = await checkReservationFit(tx, {
+        businessId,
+        date,
+        startsAt,
+        place: parsed.data.place === undefined ? current.place : parsed.data.place,
+        bookedAs: current.bookedAs,
+        excludeOrderId: orderId,
+        occupy: nextStatus !== "CANCELLED",
+      });
+      if (!fit.ok) return fit;
+      const order = await tx.customerOrder.update({
+        where: { id: orderId },
+        data: {
+          customerId,
+          title: parsed.data.title,
+          description: parsed.data.title,
+          place: fit.place,
+          amountMinor: parsed.data.amountMinor,
+          scheduledFor: fit.scheduledFor,
+          status: parsed.data.status,
+          completedAt: parsed.data.status === undefined ? undefined : parsed.data.status === "DONE" ? now : null,
+          cancelledAt: parsed.data.status === undefined ? undefined : parsed.data.status === "CANCELLED" ? now : null,
+        },
+        include: orderInclude,
+      });
+      return { ok: true as const, order };
     });
+    if (!saved.ok) return errorResponse(422, saved.code, saved.message);
+    const order = saved.order;
     await prisma.activityEvent.create({
       data: {
         businessId,
@@ -83,6 +103,19 @@ async function updateStatus(businessId: string, orderId: string, actorId: string
   try {
     const current = await prisma.customerOrder.findFirst({ where: { id: orderId, businessId } });
     if (!current) return errorResponse(404, "ORDER_NOT_FOUND", "El pedido no existe.");
+
+    if (current.kind === "SERVICE" && current.status === "CANCELLED" && status === "SCHEDULED") {
+      const fit = await checkReservationFit(prisma, {
+        businessId,
+        date: buenosAiresDate(current.scheduledFor),
+        startsAt: current.bookedAs === "TURN" ? buenosAiresTime(current.scheduledFor) : null,
+        place: current.place,
+        bookedAs: current.bookedAs,
+        excludeOrderId: orderId,
+        occupy: true,
+      });
+      if (!fit.ok) return errorResponse(422, fit.code, fit.message);
+    }
 
     const now = new Date();
     const order = await prisma.customerOrder.update({

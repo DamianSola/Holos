@@ -73,8 +73,8 @@ export function MovementPeriod({ businessId, service, movement: initialMovement,
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
       <section className="status-grid" aria-label="Movimiento del negocio" aria-busy={loading}>
-        <StatusCard label={selectedDay ? `${service ? "Ingresos" : "Ventas"} del ${range}` : `${service ? "Ingresos" : "Ventas"} de ${range}`} value={formatMoney(totals.incomeMinor)} detail={incomeDetail(service, period, anchor, today)} tone="ready" />
-        <StatusCard label={selectedDay ? `Gastos del ${range}` : `Gastos de ${range}`} value={formatMoney(totals.expensesMinor)} detail={expenseDetail(period, anchor, today)} tone="pending" />
+        <StatusCard label={selectedDay ? `${service ? "Ingresos" : "Ventas"} del ${range}` : `${service ? "Ingresos" : "Ventas"} de ${range}`} value={formatMoney(totals.incomeMinor)} tone="ready" />
+        <StatusCard label={selectedDay ? `Gastos del ${range}` : `Gastos de ${range}`} value={formatMoney(totals.expensesMinor)} tone="pending" />
         {children}
       </section>
       <section className="dashboard-lower-grid">
@@ -82,8 +82,6 @@ export function MovementPeriod({ businessId, service, movement: initialMovement,
         <div className="panel next-panel">
           <p className="eyebrow">Pulso</p>
           <h2>{pulseHeading}</h2>
-          <p>{pulseText(service, period, anchor, today, totals)}</p>
-          <span className="panel-note">Datos actualizados desde PostgreSQL</span>
         </div>
       </section>
     </>
@@ -94,42 +92,6 @@ function cardRange(period: MovementPeriod, anchor: string, today: string) {
   if (period === "day") return anchor === today ? "hoy" : formatCivil(anchor, { day: "numeric", month: "long", year: "numeric" });
   if (period === "week") return mondayKey(anchor) === mondayKey(today) ? "esta semana" : `la semana del ${formatCivil(mondayKey(anchor), { day: "numeric", month: "long" })}`;
   return anchor.slice(0, 7) === today.slice(0, 7) ? "este mes" : formatCivil(anchor, { month: "long", year: "numeric" });
-}
-
-function incomeDetail(service: boolean, period: MovementPeriod, anchor: string, today: string) {
-  if (period === "day" && anchor === today) return service ? "Pagos registrados desde medianoche." : "Ventas confirmadas desde medianoche.";
-  if (period === "day") return service ? "Pagos de reservas y ventas ya cobradas ese día." : "Ventas confirmadas ese día.";
-  if (period === "week" && mondayKey(anchor) === mondayKey(today)) return service ? "Pagos de reservas y ventas ya cobradas esta semana." : "Ventas confirmadas esta semana.";
-  if (period === "week") return service ? "Pagos de reservas y ventas ya cobradas esa semana." : "Ventas confirmadas esa semana.";
-  if (anchor.slice(0, 7) === today.slice(0, 7)) return service ? "Pagos de reservas y ventas ya cobradas." : "Ventas confirmadas este mes.";
-  return service ? "Pagos de reservas y ventas ya cobradas ese mes." : "Ventas confirmadas ese mes.";
-}
-
-function expenseDetail(period: MovementPeriod, anchor: string, today: string) {
-  if (period === "day" && anchor === today) return "Gastos registrados desde medianoche.";
-  if (period === "day") return "Gastos registrados ese día.";
-  if (period === "week" && mondayKey(anchor) === mondayKey(today)) return "Gastos registrados esta semana.";
-  if (period === "week") return "Gastos registrados esa semana.";
-  if (anchor.slice(0, 7) === today.slice(0, 7)) return "Gastos registrados este mes.";
-  return "Gastos registrados ese mes.";
-}
-
-function pulseText(service: boolean, period: MovementPeriod, anchor: string, today: string, totals: Totals) {
-  const range = cardRange(period, anchor, today);
-  const expenses = otherDay(period, anchor, today) ? `Los gastos del ${range} suman ${formatMoney(totals.expensesMinor)}.` : `Los gastos de ${range} suman ${formatMoney(totals.expensesMinor)}.`;
-  if (service) return expenses;
-  const when = otherDay(period, anchor, today) ? `el ${range}` : isCurrent(period, anchor, today) ? range : `en ${range}`;
-  return `${totals.productsSold} unidades vendidas ${when}. ${expenses}`;
-}
-
-function isCurrent(period: MovementPeriod, anchor: string, today: string) {
-  if (period === "day") return anchor === today;
-  if (period === "week") return mondayKey(anchor) === mondayKey(today);
-  return anchor.slice(0, 7) === today.slice(0, 7);
-}
-
-function otherDay(period: MovementPeriod, anchor: string, today: string) {
-  return period === "day" && anchor !== today;
 }
 
 function todayKey() {
@@ -149,7 +111,7 @@ function mondayKey(key: string) {
   return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth() + 1).padStart(2, "0")}-${String(utc.getUTCDate()).padStart(2, "0")}`;
 }
 
-export function StatusCard({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: "ready" | "pending" }) {
+export function StatusCard({ label, value, tone }: { label: string; value: string; tone: "ready" | "pending" }) {
   return (
     <article className="status-card">
       <div className="status-card-topline">
@@ -157,7 +119,6 @@ export function StatusCard({ label, value, detail, tone }: { label: string; valu
         <span className={`status-dot status-dot-${tone}`} aria-label={tone === "ready" ? "Ready" : "Pending"} />
       </div>
       <strong>{value}</strong>
-      <p>{detail}</p>
     </article>
   );
 }

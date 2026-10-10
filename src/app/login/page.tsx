@@ -27,12 +27,12 @@ export default function LoginPage() {
     router.refresh();
   }
 
-  return <AuthPage title="Volvé a ver el todo." description="Entrá a tu espacio de trabajo y seguí operando tu negocio." submitLabel={loading ? "Ingresando..." : "Ingresar"} error={error} onSubmit={handleSubmit} footerHref="/register" footerLabel="Crear una cuenta" secondaryHref="/recuperar" secondaryLabel="Olvidé mi contraseña" />;
+  return <AuthPage title="Volvé a ver el todo." submitLabel={loading ? "Ingresando..." : "Ingresar"} error={error} onSubmit={handleSubmit} footerHref="/register" footerLabel="Crear una cuenta" secondaryHref="/recuperar" secondaryLabel="Olvidé mi contraseña" />;
 }
 
-type AuthPageProps = { title: string; description: string; submitLabel: string; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => void; footerHref: string; footerLabel: string; register?: boolean; children?: ReactNode; notice?: string; secondaryHref?: string; secondaryLabel?: string };
+type AuthPageProps = { title: string; submitLabel: string; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => void; footerHref: string; footerLabel: string; register?: boolean; children?: ReactNode; notice?: string; secondaryHref?: string; secondaryLabel?: string };
 
-export function AuthPage({ title, description, submitLabel, error, onSubmit, footerHref, footerLabel, register = false, children, notice, secondaryHref, secondaryLabel }: AuthPageProps) {
+export function AuthPage({ title, submitLabel, error, onSubmit, footerHref, footerLabel, register = false, children, notice, secondaryHref, secondaryLabel }: AuthPageProps) {
   return (
     <main className="auth-page">
       <section className="auth-stage">
@@ -44,7 +44,6 @@ export function AuthPage({ title, description, submitLabel, error, onSubmit, foo
         <div className="auth-toolbar"><ThemeToggle /></div>
         <p className="eyebrow">{register ? "Cuenta nueva" : "Acceso"}</p>
         <h1>{title}</h1>
-        <p className="auth-description">{description}</p>
         <form className="auth-form" onSubmit={onSubmit}>
           {children ?? <>
             {register && <ImagePicker name="image" label="Foto de perfil" />}

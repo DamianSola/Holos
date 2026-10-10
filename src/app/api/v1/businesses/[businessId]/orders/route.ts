@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { buildProductLines } from "@/server/orders/product-lines";
+import { checkReservationFit } from "@/server/orders/reservation-booking";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
 import { customerOrderSchema, productOrderCreateSchema, serviceReservationSchema } from "@/server/validators/domain";
@@ -41,21 +42,29 @@ export async function POST(request: Request, context: Context) {
     try {
       const customer = await prisma.customer.findFirst({ where: { id: parsed.data.customerId, businessId, deletedAt: null } });
       if (!customer) return errorResponse(422, "CUSTOMER_NOT_FOUND", "El cliente no pertenece a este negocio.");
-      const order = await prisma.customerOrder.create({
-        data: {
-          businessId,
-          customerId: customer.id,
-          createdById: access.user.id,
-          kind: "SERVICE",
-          title: parsed.data.title,
-          quantity: 1,
-          scheduledFor: new Date(`${parsed.data.scheduledFor}T12:00:00`),
-          amountMinor: parsed.data.amountMinor,
-          place: parsed.data.place,
-          description: parsed.data.title,
-        },
-        include: orderInclude,
+      const created = await prisma.$transaction(async (tx) => {
+        const fit = await checkReservationFit(tx, { businessId, date: parsed.data.scheduledFor, startsAt: parsed.data.startsAt, place: parsed.data.place, occupy: true });
+        if (!fit.ok) return fit;
+        const order = await tx.customerOrder.create({
+          data: {
+            businessId,
+            customerId: customer.id,
+            createdById: access.user.id,
+            kind: "SERVICE",
+            bookedAs: fit.bookedAs,
+            title: parsed.data.title,
+            quantity: 1,
+            scheduledFor: fit.scheduledFor,
+            amountMinor: parsed.data.amountMinor,
+            place: fit.place,
+            description: parsed.data.title,
+          },
+          include: orderInclude,
+        });
+        return { ok: true as const, order };
       });
+      if (!created.ok) return errorResponse(422, created.code, created.message);
+      const order = created.order;
       await prisma.activityEvent.create({
         data: {
           businessId,

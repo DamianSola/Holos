@@ -117,7 +117,6 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
     <section className="module-page portfolio-page">
       <p className="eyebrow">Tablero general</p>
       <h1>Todos tus negocios</h1>
-      <p className="module-description">Una vista consolidada de ingresos, gastos, operación y evolución de todos los negocios a los que tenés acceso.</p>
 
       <div className="portfolio-stat-grid">
         <MetricCard label="Negocios" value={String(initialPortfolio.totals.businessCount)} detail="con acceso activo" tone="neutral" icon="01" />
@@ -129,21 +128,19 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
       </div>
 
       <section className="portfolio-health panel">
-        <div><p className="eyebrow">Salud operativa</p><h2>Tu portfolio está {initialPortfolio.totals.criticalProducts ? "pidiendo atención" : "en buen estado"}</h2><p>Señal basada en stock crítico, resultado neto y actividad de tus negocios.</p></div>
+        <div><p className="eyebrow">Salud operativa</p><h2>Tu portfolio está {initialPortfolio.totals.criticalProducts ? "pidiendo atención" : "en buen estado"}</h2></div>
         <div className="health-meter"><span style={{ width: `${healthScore(initialPortfolio)}%` }} /><strong>{healthScore(initialPortfolio)}%</strong></div>
       </section>
 
       <section className="portfolio-trend panel">
         <div className="panel-heading"><div><p className="eyebrow">Evolución consolidada</p><h2>Ingresos, gastos y resultado</h2></div><span className="panel-count">Últimos 6 meses</span></div>
         <div className="trend-table-wrap"><table className="trend-table"><thead><tr><th>Período</th><th>Ingresos</th><th>Gastos</th><th>Resultado neto</th><th>Variación</th></tr></thead><tbody>{initialPortfolio.trend.map((period) => <tr className={period.current ? "is-current" : ""} key={`${period.label}-${period.current}`}><th scope="row">{period.label}{period.current && <span className="current-period">Actual</span>}</th><td className="income-cell">{formatMoney(period.incomeMinor)}</td><td className="expense-cell">{formatMoney(period.expensesMinor)}</td><td className={period.netMinor >= 0 ? "net-cell-positive" : "net-cell-negative"}>{formatMoney(period.netMinor)}</td><td><div className="change-list"><span>Ingresos <b className={deltaClass(period.incomeDeltaPercent)}>{formatChange(period.incomeDeltaPercent)}</b></span><span>Gastos <b className={deltaClass(period.expensesDeltaPercent)}>{formatChange(period.expensesDeltaPercent)}</b></span><span>Neto <b className={deltaClass(period.netDeltaPercent)}>{formatChange(period.netDeltaPercent)}</b></span></div></td></tr>)}</tbody></table></div>
-        <p className="trend-caption">Las variaciones se calculan sobre el total consolidado de todos tus negocios.</p>
       </section>
 
       <form className="customer-form" onSubmit={createBusiness}>
         <div className="customer-form-heading">
           <div>
             <h2>Crear negocio</h2>
-            <p>{form.kind === "SERVICE" ? "Vas a agendar cada servicio, cobrarlo desde la reserva y llevar el stock de insumos y herramientas." : "Vas a vender productos, con catálogo y stock."}</p>
           </div>
         </div>
         <div className="customer-form-grid">

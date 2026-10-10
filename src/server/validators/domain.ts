@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { slotTimes } from "@/lib/reservation-schedule";
 
 export const businessIdSchema = z.string().uuid();
 
@@ -146,22 +147,61 @@ export const customerOrderStatusSchema = z.object({
   status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]),
 }).strict();
 
+const clockSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
 export const serviceReservationSchema = z.object({
   customerId: z.string().uuid(),
-  title: z.string().trim().min(1).max(160),
+  title: z.string().trim().max(160).default(""),
   scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   amountMinor: z.number().int().positive().max(2_147_483_647),
-  place: z.string().trim().min(1).max(160),
+  place: z.string().trim().min(1).max(160).optional(),
+  startsAt: clockSchema.optional(),
 }).strict();
 
 export const serviceReservationUpdateSchema = z.object({
   customerId: z.string().uuid().optional(),
-  title: z.string().trim().min(1).max(160).optional(),
+  title: z.string().trim().max(160).optional(),
   scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   amountMinor: z.number().int().positive().max(2_147_483_647).optional(),
   place: z.string().trim().min(1).max(160).optional(),
+  startsAt: clockSchema.optional(),
   status: z.enum(["SCHEDULED", "DONE", "CANCELLED"]).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Sin cambios.");
+
+const nullableCount = z.number().int().min(1).max(30).nullable();
+
+export const reservationScheduleSchema = z.object({
+  mode: z.enum(["DATE", "TURN"]),
+  crewSize: nullableCount,
+  visitsEach: nullableCount,
+  turnMinutes: z.union([z.literal(30), z.literal(60), z.null()]),
+  seatsPerTurn: nullableCount,
+  openTime: clockSchema.nullable(),
+  closeTime: clockSchema.nullable(),
+  weekdays: z.array(z.number().int().min(1).max(7)).max(7),
+  fixedPlace: z.string().trim().max(160).nullable(),
+}).strict().superRefine((schedule, context) => {
+  if (new Set(schedule.weekdays).size !== schedule.weekdays.length) {
+    context.addIssue({ code: "custom", path: ["weekdays"], message: "Los días están repetidos." });
+  }
+  if (schedule.mode === "DATE") {
+    const missingCrew = schedule.crewSize === null;
+    const missingVisits = schedule.visitsEach === null;
+    if (missingCrew !== missingVisits) context.addIssue({ code: "custom", path: ["crewSize"], message: "Completá personas y visitas, o dejá las dos vacías." });
+    if (schedule.crewSize !== null && schedule.visitsEach !== null && schedule.crewSize * schedule.visitsEach > 200) {
+      context.addIssue({ code: "custom", path: ["visitsEach"], message: "El cupo del día es demasiado grande." });
+    }
+    return;
+  }
+  if (schedule.turnMinutes === null || schedule.seatsPerTurn === null || schedule.openTime === null || schedule.closeTime === null) {
+    context.addIssue({ code: "custom", path: ["openTime"], message: "Completá la duración, los lugares y el horario." });
+    return;
+  }
+  if (schedule.weekdays.length === 0) context.addIssue({ code: "custom", path: ["weekdays"], message: "Elegí al menos un día." });
+  if (slotTimes(schedule.openTime, schedule.closeTime, schedule.turnMinutes).length === 0) {
+    context.addIssue({ code: "custom", path: ["closeTime"], message: "El horario no llega a armar un turno." });
+  }
+});
 
 export const orderPaymentSchema = z.object({
   amountMinor: z.number().int().positive().max(2_147_483_647),

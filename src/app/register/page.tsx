@@ -26,5 +26,5 @@ export default function RegisterPage() {
     router.refresh();
   }
 
-  return <AuthPage register title="Tu negocio, conectado." description="Creá tu primer espacio de trabajo y empezá a ver el todo." submitLabel={loading ? "Creando..." : "Crear cuenta"} error={error} onSubmit={handleSubmit} footerHref="/login" footerLabel="Ya tengo una cuenta" />;
+  return <AuthPage register title="Tu negocio, conectado." submitLabel={loading ? "Creando..." : "Crear cuenta"} error={error} onSubmit={handleSubmit} footerHref="/login" footerLabel="Ya tengo una cuenta" />;
 }

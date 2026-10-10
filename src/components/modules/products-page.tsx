@@ -23,6 +23,7 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
   const [query, setQuery] = useState("");
   const [stockPrompt, setStockPrompt] = useState<{ product: Product; direction: "in" | "out" } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Product | null>(null);
+  const [viewing, setViewing] = useState<Product | null>(null);
 
   async function load() {
     setLoading(true);
@@ -93,39 +94,25 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
   const visible = useMemo(() => listed.filter((product) => matchesQuery(query, product.name, product.category, product.description, kindLabel(product.catalogKind))), [listed, query]);
 
   return (
-    <ModuleLayout eyebrow="Operación" title={stockMode ? "Stock" : "Productos"} description={stockMode ? "Llevá insumos y herramientas. Sumar o restar no mueve la plata: el gasto se carga aparte." : "Gestioná tu catálogo, precios y existencias desde un solo lugar."}>
+    <ModuleLayout eyebrow="Operación" title={stockMode ? "Stock" : "Productos"}>
       <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}>{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button></div>
       {error && !formOpen && !stockPrompt && <p className="form-error" role="alert">{error}</p>}
       {listed.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder={stockMode ? "Nombre o tipo" : "Nombre o tipo"} />}
       {loading ? <div className="module-state">Cargando...</div> : listed.length === 0 ? <div className="module-state">{stockMode ? "Todavía no hay insumos ni herramientas." : "Todavía no hay productos."}</div> : visible.length ? (
-        <div className="product-list">
-          {visible.map((product) => (
-            <article className={`product-card ${product.stock <= product.minimumStock ? "is-low-stock" : ""}`} key={product.id}>
-              <div className="product-card-main">
-                <div>
-                  <div className="product-title-line">
-                    <strong>{product.name}</strong>
-                    {stockMode ? <span className="customer-pill">{kindLabel(product.catalogKind)}</span> : product.category && <span className="customer-pill">{product.category}</span>}
-                    {product.stock <= product.minimumStock && <span className="stock-badge">Stock bajo</span>}
-                  </div>
-                  {product.description && <p>{product.description}</p>}
-                </div>
-                {stockMode ? null : <div className="product-price">{formatMoney(product.priceMinor)}<small>precio</small></div>}
-              </div>
-              <div className="product-card-details">
-                <span><strong>{product.stock}</strong> unidades</span>
-                <span>mínimo {product.minimumStock}</span>
-                {product.costMinor !== null && <span>costo {formatMoney(product.costMinor)}</span>}
-              </div>
-              <div className="product-actions">
-                <button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product, direction: "in" }); }}>{stockMode ? "Sumar" : "+ Ingresar stock"}</button>
-                <button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product, direction: "out" }); }} disabled={product.stock === 0}>{stockMode ? "Restar" : "- Retirar stock"}</button>
-                <button className="secondary-button" type="button" onClick={() => startEditing(product)}>Editar</button>
-                <button className="text-button" type="button" onClick={() => setArchiveTarget(product)}>Archivar</button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <div className="record-scroll"><div className="record-list products">
+          {visible.map((product) => {
+            const low = product.stock <= product.minimumStock;
+            return (
+              <article className="record-row products" key={product.id}>
+                <strong>{product.name}</strong>
+                <span>{stockMode ? kindLabel(product.catalogKind) : (product.category || "—")}</span>
+                <strong className="record-money">{stockMode ? `${product.stock} un.` : formatMoney(product.priceMinor)}</strong>
+                <span className={low ? "record-alert" : undefined}>{stockMode ? `mín. ${product.minimumStock}` : low ? `${product.stock} un. · Bajo` : `${product.stock} un.`}</span>
+                <button className="secondary-button" type="button" onClick={() => setViewing(product)}>Ver</button>
+              </article>
+            );
+          })}
+        </div></div>
       ) : <SearchMiss query={query} />}
       {formOpen && (
         <FormModal title={editingId ? (stockMode ? "Editar ítem" : "Editar producto") : (stockMode ? "Nuevo ítem" : "Nuevo producto")} onClose={closeForm}>
@@ -152,6 +139,7 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
         </FormModal>
       )}
       {archiveTarget && <ConfirmModal title="Archivar" message={stockMode ? `¿Archivar ${archiveTarget.name}? Deja de aparecer en el stock.` : `¿Archivar ${archiveTarget.name}? Dejará de aparecer en ventas.`} onCancel={() => setArchiveTarget(null)} onAccept={() => void archiveProduct(archiveTarget)} />}
+      {viewing && <FormModal title={viewing.name} onClose={() => setViewing(null)}><div className="record-detail"><p>{stockMode ? kindLabel(viewing.catalogKind) : (viewing.category || "Sin tipo")}</p>{stockMode ? null : <p>Precio <strong>{formatMoney(viewing.priceMinor)}</strong></p>}<p>Stock <strong>{viewing.stock}</strong> · mínimo {viewing.minimumStock}{viewing.stock <= viewing.minimumStock ? " · Bajo" : ""}</p>{viewing.costMinor !== null && <p>Costo <strong>{formatMoney(viewing.costMinor)}</strong></p>}<p>{viewing.description || "Sin descripción"}</p><div className="customer-actions"><button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "in" }); setViewing(null); }}>{stockMode ? "Sumar" : "Ingresar stock"}</button><button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "out" }); setViewing(null); }} disabled={viewing.stock === 0}>{stockMode ? "Restar" : "Retirar stock"}</button><button className="secondary-button" type="button" onClick={() => { startEditing(viewing); setViewing(null); }}>Editar</button><button className="text-button" type="button" onClick={() => { setArchiveTarget(viewing); setViewing(null); }}>Archivar</button></div></div></FormModal>}
       {stockPrompt && <StockAdjustModal product={stockPrompt.product} direction={stockPrompt.direction} stockMode={stockMode} error={error} onCancel={() => { setError(""); setStockPrompt(null); }} onAccept={(quantity, reason) => adjustStock(stockPrompt.product, quantity, reason)} />}
     </ModuleLayout>
   );

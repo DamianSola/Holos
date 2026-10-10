@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthPage title="Recuperar el acceso." description="Te mandamos un enlace de una hora para elegir otra contraseña." submitLabel={loading ? "Enviando..." : "Enviar enlace"} error={error} notice={notice} onSubmit={onSubmit} footerHref="/login" footerLabel="Volver a ingresar">
+    <AuthPage title="Recuperar el acceso." submitLabel={loading ? "Enviando..." : "Enviar enlace"} error={error} notice={notice} onSubmit={onSubmit} footerHref="/login" footerLabel="Volver a ingresar">
       <label>Email<input name="email" type="email" required maxLength={320} autoComplete="email" /></label>
     </AuthPage>
   );

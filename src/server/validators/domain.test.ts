@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, orderPaymentSchema, productOrderCreateSchema, productSchema, productUpdateSchema, saleSchema, serviceReservationSchema, serviceSaleSchema, stockItemSchema, supplierSchema, taskSchema, taskUpdateSchema, userProfileUpdateSchema } from "@/server/validators/domain";
+import { dailyPlaces, slotTimes } from "@/lib/reservation-schedule";
+import { businessCreateSchema, customerOrderSchema, customerSchema, customerUpdateSchema, expenseSchema, fiscalProfileSchema, imageSchema, inventoryAdjustmentSchema, membershipInviteSchema, membershipRoleSchema, orderPaymentSchema, productOrderCreateSchema, productSchema, productUpdateSchema, reservationScheduleSchema, saleSchema, serviceReservationSchema, serviceSaleSchema, stockItemSchema, supplierSchema, taskSchema, taskUpdateSchema, userProfileUpdateSchema } from "@/server/validators/domain";
 
 describe("domain input validation", () => {
   it("accepts a valid product with minor-unit pricing", () => {
@@ -83,6 +84,13 @@ describe("domain input validation", () => {
   it("accepts a service reservation and rejects one without a place", () => {
     expect(serviceReservationSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", title: "Barra de tragos, 4 horas", scheduledFor: "2026-11-02", amountMinor: 45000000, place: "Salón Norte" }).success).toBe(true);
     expect(serviceReservationSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", title: "Barra", scheduledFor: "2026-11-02", amountMinor: 45000000, place: "" }).success).toBe(false);
+    expect(serviceReservationSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", title: "Masaje", scheduledFor: "2026-11-02", amountMinor: 45000000, startsAt: "10:00" }).success).toBe(true);
+    expect(serviceReservationSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", scheduledFor: "2026-11-02", amountMinor: 45000000, place: "Salón Norte" }).success).toBe(true);
+    expect(dailyPlaces(4, 2)).toBe(8);
+    expect(slotTimes("09:00", "13:00", 60)).toEqual(["09:00", "10:00", "11:00", "12:00"]);
+    expect(reservationScheduleSchema.safeParse({ mode: "DATE", crewSize: 4, visitsEach: 2, turnMinutes: null, seatsPerTurn: null, openTime: null, closeTime: null, weekdays: [1, 2, 3, 4, 5, 6, 7], fixedPlace: null }).success).toBe(true);
+    expect(reservationScheduleSchema.safeParse({ mode: "DATE", crewSize: 4, visitsEach: null, turnMinutes: null, seatsPerTurn: null, openTime: null, closeTime: null, weekdays: [1], fixedPlace: null }).success).toBe(false);
+    expect(reservationScheduleSchema.safeParse({ mode: "TURN", crewSize: null, visitsEach: null, turnMinutes: 60, seatsPerTurn: 4, openTime: "09:00", closeTime: "13:00", weekdays: [1, 2, 3, 4, 5], fixedPlace: "Consultorio" }).success).toBe(true);
     expect(orderPaymentSchema.safeParse({ amountMinor: 15000000, paymentMethod: "CASH" }).success).toBe(true);
     expect(orderPaymentSchema.safeParse({ amountMinor: 0, paymentMethod: "CASH" }).success).toBe(false);
   });

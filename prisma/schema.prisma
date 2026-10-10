@@ -97,6 +97,11 @@ enum BusinessKind {
   SERVICE
 }
 
+enum ReservationMode {
+  DATE
+  TURN
+}
+
 model User {
   id              String        @id @default(uuid()) @db.Uuid
   email           String
@@ -196,6 +201,7 @@ model Business {
   notifications Notification[]
   activities   ActivityEvent[]
   fiscalProfile FiscalProfile?
+  reservationSchedule ReservationSchedule?
 
   @@index([deletedAt])
 }
@@ -311,6 +317,7 @@ model CustomerOrder {
   productId    String?     @db.Uuid
   kind         OrderKind
   status       OrderStatus @default(SCHEDULED)
+  bookedAs     ReservationMode @default(DATE)
   title        String
   quantity     Int         @default(1)
   scheduledFor DateTime
@@ -334,6 +341,22 @@ model CustomerOrder {
   @@index([businessId, status, scheduledFor])
   @@index([businessId, customerId])
   @@index([createdById])
+}
+
+model ReservationSchedule {
+  businessId   String          @id @db.Uuid
+  mode         ReservationMode @default(DATE)
+  crewSize     Int?
+  visitsEach   Int?
+  turnMinutes  Int?
+  seatsPerTurn Int?
+  openTime     String?
+  closeTime    String?
+  weekdays     String          @default("1,2,3,4,5,6,7")
+  fixedPlace   String?
+  updatedAt    DateTime        @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model OrderItem {

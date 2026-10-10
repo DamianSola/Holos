@@ -66,7 +66,6 @@ export function FiscalPage({ businessId, initial }: { businessId: string; initia
     <section className="module-page">
       <p className="eyebrow">Facturación</p>
       <h1>ARCA</h1>
-      <p className="module-description">Con el certificado cargado, confirmar una venta pide el CAE a ARCA. Si ARCA rechaza, la venta no se confirma y el stock no cambia. Sin certificado, la venta se confirma igual y se imprime un ticket interno, sin un CAE inventado.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       {success && <p className="form-success" role="status">{success}</p>}
       <form className="customer-form-grid" onSubmit={(event) => void save(event)}>

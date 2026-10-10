@@ -390,6 +390,7 @@ h2 { margin-bottom: 4px; font-size: 16px; font-weight: 600; line-height: 1.3; le
 .dashboard-lower-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.72fr); gap: 12px; }
 .panel { padding: 18px 18px 8px; }
 .panel-heading { align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.panel-heading-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .panel-count { padding: 4px 7px; background: var(--surface-muted); border-radius: var(--radius-sm); }
 .empty-state { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; text-align: center; }
 .empty-state-mark {
@@ -641,6 +642,58 @@ html[data-theme="dark"] .trend-net { --trend-color: #c5d0dc; }
 .span-all { grid-column: 1 / -1; }
 .pem-input { font-family: "Courier New", monospace; font-size: 12px; }
 .customer-form-wide { grid-column: span 3; }
+.expense-scroll { overflow-x: auto; margin-top: 8px; }
+.expense-list { display: grid; gap: 6px; min-width: 760px; }
+.expense-row {
+  display: grid;
+  grid-template-columns: 7.2rem minmax(8rem, 1.5fr) minmax(6rem, 0.9fr) minmax(6rem, 0.9fr) minmax(6rem, 1.2fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.expense-row time, .expense-row span { overflow: hidden; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.expense-row strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.expense-amount { font-variant-numeric: tabular-nums; text-align: right; }
+.expense-row .text-button { white-space: nowrap; }
+.record-scroll { overflow-x: auto; margin-top: 8px; }
+.record-list { display: grid; gap: 6px; }
+.record-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.record-list.customers { min-width: 860px; }
+.record-row.customers { grid-template-columns: minmax(8rem, 1.4fr) minmax(7rem, 0.9fr) minmax(8rem, 1.1fr) 5.2rem auto auto auto; }
+.record-list.products { min-width: 640px; }
+.record-row.products { grid-template-columns: minmax(8rem, 1.6fr) minmax(6rem, 0.8fr) 7rem 6.5rem auto; }
+.record-list.suppliers { min-width: 980px; }
+.record-row.suppliers { grid-template-columns: minmax(8rem, 1.3fr) 7.2rem minmax(6rem, 0.8fr) minmax(8rem, 1fr) 8rem minmax(6rem, 1fr) 5.5rem auto; }
+.record-list.sales { min-width: 860px; }
+.record-row.sales { grid-template-columns: 8.4rem minmax(8rem, 1fr) 6.4rem minmax(8rem, 1.4fr) auto auto auto; }
+.record-list.reservations { min-width: 640px; }
+.record-row.reservations { grid-template-columns: minmax(8rem, 1.4fr) minmax(7rem, 1fr) minmax(6rem, 0.9fr) minmax(7rem, 1fr) auto; }
+.record-row > span, .record-row time { overflow: hidden; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.record-row > strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.record-row .record-money { font-variant-numeric: tabular-nums; text-align: right; }
+.record-row .secondary-button, .record-row .text-button { min-height: 32px; white-space: nowrap; }
+.record-alert { color: var(--clay); font-weight: 600; }
+.record-detail { display: grid; gap: 8px; }
+.record-detail p { margin: 0; color: var(--text-secondary); }
+.record-detail strong { color: var(--text-primary); }
+.record-fields { display: grid; gap: 12px; margin: 0; }
+.record-fields div { display: grid; gap: 2px; }
+.record-fields dt { margin: 0; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.record-fields dd { margin: 0; color: var(--text-primary); white-space: pre-wrap; }
+.record-lines { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.record-lines li { display: flex; justify-content: space-between; gap: 12px; }
+.modal-card > .record-detail { padding: 16px 20px 20px; }
 .customer-card { display: grid; gap: 12px; padding: 16px; }
 .customer-card:hover { border-color: var(--border-strong); }
 .customer-contact { flex-wrap: wrap; justify-content: flex-start; padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; }
@@ -1000,7 +1053,15 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
 .agenda-day, .modal-card, .calendar-day { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .agenda-day { padding: 12px 14px; }
 .agenda-day header { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 8px; }
-.agenda-day header span, .agenda-empty, .calendar-dow, .calendar-more { color: var(--text-muted); font-size: 13px; }
+.agenda-day header span, .agenda-empty, .calendar-dow, .calendar-more, .agenda-count { color: var(--text-muted); font-size: 13px; }
+.agenda-count { white-space: nowrap; }
+.turn-list { display: grid; gap: 6px; }
+.turn-row { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.turn-row.is-full { background: var(--surface-muted); }
+.turn-names { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.turn-name { border: 0; background: transparent; color: var(--text-primary); padding: 0; text-align: left; }
+.weekday-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.weekday-picks .auth-submit, .weekday-picks .secondary-button { margin-top: 0; }
 .agenda-day.is-today, .calendar-day.is-today { border-color: var(--brand); }
 .agenda-empty { margin: 0; }
 .calendar-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
@@ -1020,7 +1081,7 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
 .modal-header { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: flex-start; gap: 16px; margin: 0; padding: 18px 20px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .modal-header h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
 .modal-close { flex: 0 0 auto; }
-.modal-card > .reservation-detail, .modal-card > .customer-form { padding: 16px 20px 20px; }
+.modal-card > .reservation-detail, .modal-card > .customer-form, .modal-card > .record-detail { padding: 16px 20px 20px; }
 .dialog-body { display: grid; gap: 16px; }
 .dialog-body p { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
@@ -1078,7 +1139,8 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
   .identity-line { flex-wrap: wrap; align-items: flex-start; }
   .identity-line .business-logo { width: 56px; height: 56px; flex-basis: 56px; }
   h1, .customer-card-header p, .sale-row p, .data-row span { overflow-wrap: anywhere; }
-  .data-row, .agenda-day header { align-items: flex-start; flex-direction: column; }
+  .data-row, .agenda-day header, .turn-row { align-items: flex-start; flex-direction: column; }
+  .turn-row { grid-template-columns: 1fr; }
   .sale-form input, .sale-form select, .inline-form input { width: 100%; min-width: 0; }
   .product-actions > button { flex: 1 1 calc(50% - 8px); min-width: 0; white-space: normal; }
   .customer-actions > a, .customer-actions > button { flex: 0 1 auto; max-width: 100%; white-space: normal; }
@@ -1093,7 +1155,7 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
   .calendar-dow { font-size: 11px; }
   .modal-backdrop { align-items: end; padding: 8px; }
   .modal-card { width: 100%; max-height: 94vh; }
-  .modal-card > .reservation-detail, .modal-card > .customer-form { padding: 14px 14px 18px; }
+  .modal-card > .reservation-detail, .modal-card > .customer-form, .modal-card > .record-detail { padding: 14px 14px 18px; }
   input, select, textarea { font-size: 16px; }
   .auth-stage { padding: 24px 16px 20px; }
   .auth-stage-copy { font-size: 16px; }
@@ -1112,3 +1174,48 @@ html[data-theme="dark"] .marketing-grid .marketing-vision { background: #121c28;
   .calendar-day { min-height: 48px; }
   .reservation-chip.is-compact span, .reservation-chip.is-compact em { display: none; }
 }
+
+.sale-form .customer-picker { flex: 1 1 240px; min-width: 220px; }
+.customer-picker label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.customer-picker input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  outline: none;
+}
+.customer-picker input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-color: var(--brand); }
+.customer-picker-menu {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.customer-picker-options { display: grid; max-height: 220px; overflow: auto; }
+.customer-picker-option, .customer-picker-add button {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.customer-picker-option.is-active, .customer-picker-option:hover, .customer-picker-add.is-active button { background: var(--accent-soft); }
+.customer-picker-empty { margin: 0; padding: 8px 10px; color: var(--text-muted); font-size: 13px; }
+.customer-picker-add { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; padding-top: 4px; border-top: 1px solid var(--border); }
+.customer-picker-add button { flex: 1 1 auto; width: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.customer-picker-add input { flex: 0 0 148px; width: 148px; min-width: 148px; }
+.customer-picker-menu .form-error { padding: 0 6px 4px; }

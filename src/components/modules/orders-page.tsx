@@ -213,7 +213,7 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
   }
 
   return (
-    <ModuleLayout eyebrow="Operación" title={serviceBusiness ? "Reservas" : "Pedidos"} description={serviceBusiness ? "Agendá el servicio para un cliente. Cobrarlo es una venta aparte." : "Anotá lo que un cliente te encargó. Si es un producto, queda el pedido para esa fecha. Si es un servicio, queda agendado."}>
+    <ModuleLayout eyebrow="Operación" title={serviceBusiness ? "Reservas" : "Pedidos"}>
       <div className="customer-summary">
         <div className="summary-card"><span>Próximos</span><strong>{upcoming.length}</strong></div>
         {serviceBusiness ? null : <div className="summary-card"><span>Productos</span><strong>{upcoming.filter((order) => order.kind === "PRODUCT").length}</strong></div>}
@@ -225,7 +225,6 @@ export function OrdersPage({ businessId, businessKind = "STORE" }: { businessId:
           <div className="customer-form-heading">
             <div>
               <h2>{editingId ? "Editar pedido" : kind === "SERVICE" ? "Agendar servicio" : "Nuevo pedido"}</h2>
-              <p>{kind === "SERVICE" ? "El cliente pide un trabajo para una fecha." : "El cliente pide productos para una fecha."}</p>
             </div>
           </div>
           <div className="customer-form-grid">

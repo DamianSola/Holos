@@ -67,7 +67,7 @@ export async function GET(request: Request, context: Context) {
       serviceDate: order.scheduledFor,
       place: order.place,
       description: null,
-      items: [{ productName: order.title, quantity: 1, unitPriceMinor: order.amountMinor, totalMinor: order.amountMinor }],
+      items: [{ productName: order.title.trim() || order.customer.name, quantity: 1, unitPriceMinor: order.amountMinor, totalMinor: order.amountMinor }],
       invoiceNumber: order.invoice.number,
       fiscal,
       cae: order.invoice.cae,

@@ -204,7 +204,6 @@ export function TasksPanel({ businessId, members }: { businessId: string; member
             </div>
             <fieldset className="task-draft">
               <legend>Ítems</legend>
-              <p>Cada ítem se tilda en la tarea cuando se cumple. Podés crearla sin ítems.</p>
               <div className="task-item-add">
                 <input aria-label="Ítem" value={form.itemText} onChange={(event) => setForm((current) => ({ ...current, itemText: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addDraftItem(); } }} placeholder="Ej. Llamar al proveedor" maxLength={160} />
                 <button className="secondary-button" type="button" onClick={addDraftItem}>Agregar</button>

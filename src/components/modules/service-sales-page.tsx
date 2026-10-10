@@ -169,12 +169,11 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
     : null;
 
   return (
-    <ModuleLayout eyebrow="Operación" title="Ventas" description="Cerrá el cobro de un servicio. El presupuesto entra como ingreso al confirmar, y la fecha queda anotada en el comprobante.">
+    <ModuleLayout eyebrow="Operación" title="Ventas">
       <form className="customer-form" onSubmit={(event) => void save(event)}>
         <div className="customer-form-heading">
           <div>
             <h2>Servicio prestado</h2>
-            <p>El precio se carga a mano. No descuenta stock.</p>
           </div>
         </div>
         <div className="customer-form-grid">
@@ -225,7 +224,6 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
         <div className="sale-section-heading">
           <div>
             <h2>Historial</h2>
-            <p>Servicios cobrados en este negocio.</p>
           </div>
           <span className="panel-count">{visibleSales.length}</span>
         </div>

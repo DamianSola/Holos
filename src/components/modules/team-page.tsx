@@ -118,7 +118,6 @@ export function TeamPage({ businessId, initialMemberships, initialInvitations, i
     <section className="module-page">
       <p className="eyebrow">Administración</p>
       <h1>Equipo</h1>
-      <p className="module-description">Gestioná miembros, permisos y nuevas invitaciones para el negocio.</p>
 
       <div className="customer-summary">
         <div className="summary-card"><span>Miembros</span><strong>{stats.total}</strong></div>
