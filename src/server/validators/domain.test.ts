@@ -104,6 +104,8 @@ describe("domain input validation", () => {
     expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [line, other] }).success).toBe(true);
     expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [] }).success).toBe(false);
     expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [line, line] }).success).toBe(false);
+    expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [line], discount: { kind: "PERCENT", percent: 10 }, paidMinor: 1000, paymentMethod: "CASH" }).success).toBe(true);
+    expect(productOrderCreateSchema.safeParse({ customerId: "00000000-0000-4000-8000-000000000001", kind: "PRODUCT", scheduledFor: "2026-10-03", items: [line], paidMinor: 1000 }).success).toBe(false);
   });
 
   it("accepts tasks with optional assignment and rejects empty titles", () => {

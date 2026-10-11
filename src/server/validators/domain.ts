@@ -123,14 +123,31 @@ export const productOrderCreateSchema = z.object({
   scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   notes: z.string().trim().max(1000).optional(),
   items: z.array(orderLineSchema).min(1).max(100),
-}).strict().superRefine((order, context) => rejectRepeatedProducts(order.items, context));
+  discount: saleDiscountSchema.optional(),
+  paidMinor: z.number().int().nonnegative().max(2_147_483_647).optional(),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"]).optional(),
+}).strict().superRefine((order, context) => {
+  rejectRepeatedProducts(order.items, context);
+  if ((order.paidMinor ?? 0) > 0 && !order.paymentMethod) context.addIssue({ code: "custom", path: ["paymentMethod"], message: "Elegí el medio de pago." });
+});
 
 export const productOrderUpdateSchema = z.object({
   customerId: z.string().uuid(),
   scheduledFor: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   notes: z.string().trim().max(1000).optional(),
   items: z.array(orderLineSchema).min(1).max(100),
+  discount: saleDiscountSchema.optional(),
 }).strict().superRefine((order, context) => rejectRepeatedProducts(order.items, context));
+
+export const productDeliverySchema = z.union([
+  z.object({ itemId: z.string().uuid(), delivered: z.boolean() }).strict(),
+  z.object({ deliverAll: z.literal(true) }).strict(),
+]);
+
+export const productCancelSchema = z.object({
+  status: z.literal("CANCELLED"),
+  refund: z.boolean(),
+}).strict();
 
 export const customerOrderSchema = z.object({
   customerId: z.string().uuid(),

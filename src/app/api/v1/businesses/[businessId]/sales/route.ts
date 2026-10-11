@@ -35,6 +35,8 @@ export async function GET(request: Request, context: Context) {
       description: true,
       createdAt: true,
       confirmedAt: true,
+      orderId: true,
+      order: { select: { id: true, payments: { select: { id: true, amountMinor: true, paymentMethod: true, paidAt: true }, orderBy: { paidAt: "asc" } } } },
       customer: { select: { id: true, name: true, phone: true, email: true } },
       items: { select: { productName: true, quantity: true, unitPriceMinor: true, totalMinor: true } },
       invoice: { select: { number: true, arcaStatus: true, cae: true } },

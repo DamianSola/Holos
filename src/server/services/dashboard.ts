@@ -64,7 +64,7 @@ async function sumRanges(businessIds: string[], kind: "sale" | "payment" | "expe
   const amount = kind === "sale" ? Prisma.sql`"totalMinor"` : Prisma.sql`"amountMinor"`;
   const from = kind === "sale" ? Prisma.sql`"Sale"` : kind === "payment" ? Prisma.sql`"OrderPayment"` : Prisma.sql`"Expense"`;
   const filter = kind === "sale"
-    ? Prisma.sql`status = 'CONFIRMED' AND "confirmedAt" IS NOT NULL`
+    ? Prisma.sql`status = 'CONFIRMED' AND "confirmedAt" IS NOT NULL AND "orderId" IS NULL`
     : kind === "expense"
       ? Prisma.sql`"deletedAt" IS NULL`
       : Prisma.sql`TRUE`;
@@ -105,7 +105,7 @@ export async function getMovement(businessId: string, now = new Date()) {
   const rangeStart = earliest(windows.month.start, windows.week.start);
   const rangeEnd = latest(windows.month.end, windows.week.end);
   const [periodSales, periodPayments, periodExpenses] = await Promise.all([
-    prisma.sale.findMany({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: rangeStart, lt: rangeEnd } }, select: { totalMinor: true, confirmedAt: true, items: { select: { quantity: true } } } }),
+    prisma.sale.findMany({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: rangeStart, lt: rangeEnd } }, select: { orderId: true, totalMinor: true, confirmedAt: true, items: { select: { quantity: true } } } }),
     prisma.orderPayment.findMany({ where: { businessId, paidAt: { gte: rangeStart, lt: rangeEnd } }, select: { amountMinor: true, paidAt: true } }),
     prisma.expense.findMany({ where: { businessId, deletedAt: null, expenseDate: { gte: rangeStart, lt: rangeEnd } }, select: { amountMinor: true, expenseDate: true } }),
   ]);
@@ -116,7 +116,7 @@ export async function getMovement(businessId: string, now = new Date()) {
     const payments = periodPayments.filter((payment) => coversPeriod(payment.paidAt, window));
     const expenses = periodExpenses.filter((expense) => coversPeriod(expense.expenseDate, window));
     return {
-      incomeMinor: sales.reduce((total, sale) => total + sale.totalMinor, 0) + payments.reduce((total, payment) => total + payment.amountMinor, 0),
+      incomeMinor: sales.reduce((total, sale) => sale.orderId ? total : total + sale.totalMinor, 0) + payments.reduce((total, payment) => total + payment.amountMinor, 0),
       expensesMinor: expenses.reduce((total, expense) => total + expense.amountMinor, 0),
       productsSold: sales.reduce((total, sale) => total + sale.items.reduce((units, item) => units + item.quantity, 0), 0),
     };

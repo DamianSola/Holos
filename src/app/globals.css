@@ -679,6 +679,14 @@ html[data-theme="dark"] .trend-net { --trend-color: #c5d0dc; }
 .record-row.sales { grid-template-columns: 8.4rem minmax(8rem, 1fr) 6.4rem minmax(8rem, 1.4fr) auto auto auto; }
 .record-list.reservations { min-width: 640px; }
 .record-row.reservations { grid-template-columns: minmax(8rem, 1.4fr) minmax(7rem, 1fr) minmax(6rem, 0.9fr) minmax(7rem, 1fr) auto; }
+.record-list.orders { min-width: 520px; }
+.record-row.orders { grid-template-columns: minmax(8rem, 0.9fr) minmax(12rem, 1.6fr) auto; }
+.record-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.record-who > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.record-tag { flex: none; color: var(--brand-text); font-size: 12px; font-weight: 600; }
+.record-link { color: var(--brand-text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.order-check-main { display: flex; justify-content: space-between; gap: 12px; width: 100%; }
+.order-check-main strong { font-variant-numeric: tabular-nums; }
 .record-row > span, .record-row time { overflow: hidden; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .record-row > strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .record-row .record-money { font-variant-numeric: tabular-nums; text-align: right; }

@@ -32,8 +32,8 @@ export async function getBusinessDirectory(userId: string): Promise<DirectoryBus
   const [customers, products, salesMonth, salesToday, paymentsMonth, paymentsToday, critical] = await Promise.all([
     prisma.customer.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, deletedAt: null }, _count: { _all: true } }),
     prisma.product.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, status: "ACTIVE", deletedAt: null }, _count: { _all: true } }),
-    prisma.sale.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
-    prisma.sale.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, status: "CONFIRMED", confirmedAt: { gte: startOfDay } }, _sum: { totalMinor: true } }),
+    prisma.sale.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, orderId: null, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
+    prisma.sale.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, orderId: null, status: "CONFIRMED", confirmedAt: { gte: startOfDay } }, _sum: { totalMinor: true } }),
     prisma.orderPayment.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, paidAt: { gte: startOfMonth } }, _sum: { amountMinor: true } }),
     prisma.orderPayment.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, paidAt: { gte: startOfDay } }, _sum: { amountMinor: true } }),
     prisma.$queryRaw<Array<{ businessId: string; total: number }>>(Prisma.sql`

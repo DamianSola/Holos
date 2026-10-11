@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { paidMinor, paymentFits } from "@/lib/reservation-money";
+import { closeProductOrderIfSettled } from "@/server/orders/product-delivery";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
 import { businessIdSchema, orderPaymentSchema } from "@/server/validators/domain";
@@ -20,27 +21,31 @@ export async function POST(request: Request, context: Context) {
       where: { id: orderId, businessId },
       include: { payments: { select: { amountMinor: true } } },
     });
-    if (!order || order.kind !== "SERVICE") return errorResponse(404, "ORDER_NOT_FOUND", "La reserva no existe.");
-    if (order.status === "CANCELLED") return errorResponse(409, "ORDER_CANCELLED", "Una reserva cancelada no puede cobrar.");
-    if (order.amountMinor === null) return errorResponse(422, "BUDGET_REQUIRED", "Cargá el presupuesto para poder cobrar.");
+    if (!order) return errorResponse(404, "ORDER_NOT_FOUND", "El pedido no existe.");
+    if (order.status === "CANCELLED") return errorResponse(409, "ORDER_CANCELLED", "Un pedido cancelado no puede cobrar.");
+    if (order.amountMinor === null) return errorResponse(422, "BUDGET_REQUIRED", "Cargá el precio para poder cobrar.");
     if (!paymentFits(order.amountMinor, paidMinor(order.payments), parsed.data.amountMinor)) {
       return errorResponse(422, "PAYMENT_ABOVE_BALANCE", "El pago supera el saldo.");
     }
 
-    const payment = await prisma.orderPayment.create({
-      data: {
-        businessId,
-        orderId: order.id,
-        createdById: access.user.id,
-        amountMinor: parsed.data.amountMinor,
-        paymentMethod: parsed.data.paymentMethod,
-      },
+    const payment = await prisma.$transaction(async (tx) => {
+      const created = await tx.orderPayment.create({
+        data: {
+          businessId,
+          orderId: order.id,
+          createdById: access.user.id,
+          amountMinor: parsed.data.amountMinor,
+          paymentMethod: parsed.data.paymentMethod,
+        },
+      });
+      if (order.kind === "PRODUCT") await closeProductOrderIfSettled(tx, order.id);
+      return created;
     });
     await prisma.activityEvent.create({
       data: {
         businessId,
         actorId: access.user.id,
-        type: "RESERVATION_PAYMENT",
+        type: order.kind === "PRODUCT" ? "ORDER_PAYMENT" : "RESERVATION_PAYMENT",
         entityType: "CustomerOrder",
         entityId: order.id,
         metadata: { amountMinor: payment.amountMinor, paymentMethod: payment.paymentMethod, title: order.title },

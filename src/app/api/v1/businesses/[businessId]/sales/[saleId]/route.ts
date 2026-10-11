@@ -15,6 +15,7 @@ export async function DELETE(_request: Request, context: Context) {
     await prisma.$transaction(async (tx) => {
       const sale = await tx.sale.findFirst({ where: { id: saleId, businessId }, include: { items: true, invoice: true } });
       if (!sale) throw new Error("SALE_NOT_FOUND");
+      if (sale.orderId) throw new Error("ORDER_SALE");
       if (sale.invoice?.arcaStatus === "AUTHORIZED" && sale.invoice.cae) throw new Error("FISCAL_INVOICE");
 
       if (sale.status === "CONFIRMED") {
@@ -47,6 +48,7 @@ export async function DELETE(_request: Request, context: Context) {
       const messages: Record<string, [number, string]> = {
         SALE_NOT_FOUND: [404, "Venta inexistente."],
         FISCAL_INVOICE: [409, "Esta venta tiene una factura autorizada por ARCA y no se puede eliminar."],
+        ORDER_SALE: [409, "Esta venta salió de un pedido. Reabrí el pedido para deshacerla."],
       };
       const mapped = messages[error.message];
       if (mapped) return errorResponse(mapped[0], error.message, mapped[1]);

@@ -1,21 +1,16 @@
 import { prisma } from "@/lib/db";
 import { buenosAiresDate, buenosAiresTime } from "@/lib/reservation-schedule";
 import { paidMinor } from "@/lib/reservation-money";
+import { orderInclude } from "@/server/orders/order-include";
+import { quoteOrder } from "@/server/orders/order-price";
+import { cancelProductOrder, deliverProductOrder } from "@/server/orders/product-delivery";
 import { buildProductLines } from "@/server/orders/product-lines";
 import { checkReservationFit } from "@/server/orders/reservation-booking";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
-import { businessIdSchema, customerOrderStatusSchema, productOrderUpdateSchema, serviceReservationUpdateSchema } from "@/server/validators/domain";
+import { businessIdSchema, customerOrderStatusSchema, productCancelSchema, productDeliverySchema, productOrderUpdateSchema, serviceReservationUpdateSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string; orderId: string }> };
-
-const orderInclude = {
-  customer: { select: { id: true, name: true, phone: true } },
-  product: { select: { id: true, name: true, priceMinor: true } },
-  items: { select: { id: true, productId: true, productName: true, quantity: true, unitPriceMinor: true, totalMinor: true } },
-  payments: { select: { id: true, amountMinor: true, paymentMethod: true, paidAt: true }, orderBy: { paidAt: "asc" as const } },
-  invoice: { select: { id: true, number: true, arcaStatus: true, cae: true } },
-} as const;
 
 export async function PATCH(request: Request, context: Context) {
   const { businessId, orderId } = await context.params;
@@ -24,6 +19,20 @@ export async function PATCH(request: Request, context: Context) {
   if ("response" in access) return access.response;
 
   const body = await request.json().catch(() => null);
+  const delivery = productDeliverySchema.safeParse(body);
+  if (delivery.success) {
+    const result = await deliverProductOrder(businessId, orderId, delivery.data);
+    if (!result.ok) return errorResponse(result.status, result.code, result.message);
+    await prisma.activityEvent.create({ data: { businessId, actorId: access.user.id, type: "ORDER_DELIVERED", entityType: "CustomerOrder", entityId: orderId, metadata: { status: result.order.status } } });
+    return Response.json(result.order);
+  }
+  const productCancel = productCancelSchema.safeParse(body);
+  if (productCancel.success) {
+    const result = await cancelProductOrder(businessId, orderId, productCancel.data.refund);
+    if (!result.ok) return errorResponse(result.status, result.code, result.message);
+    await prisma.activityEvent.create({ data: { businessId, actorId: access.user.id, type: "ORDER_CANCELLED", entityType: "CustomerOrder", entityId: orderId, metadata: { refund: productCancel.data.refund } } });
+    return Response.json(result.order);
+  }
   const statusOnly = customerOrderStatusSchema.safeParse(body);
   if (statusOnly.success) return updateStatus(businessId, orderId, access.user.id, statusOnly.data.status);
 
@@ -104,6 +113,26 @@ async function updateStatus(businessId: string, orderId: string, actorId: string
     const current = await prisma.customerOrder.findFirst({ where: { id: orderId, businessId } });
     if (!current) return errorResponse(404, "ORDER_NOT_FOUND", "El pedido no existe.");
 
+    if (current.kind === "PRODUCT") {
+      if (status === "DONE") {
+        const result = await deliverProductOrder(businessId, orderId, { deliverAll: true });
+        if (!result.ok) return errorResponse(result.status, result.code, result.message);
+        return Response.json(result.order);
+      }
+      if (status === "CANCELLED") {
+        const paid = await prisma.orderPayment.aggregate({ where: { orderId }, _sum: { amountMinor: true } });
+        if ((paid._sum.amountMinor ?? 0) > 0) return errorResponse(422, "REFUND_REQUIRED", "Elegí si devolvés lo cobrado.");
+        const result = await cancelProductOrder(businessId, orderId, false);
+        if (!result.ok) return errorResponse(result.status, result.code, result.message);
+        return Response.json(result.order);
+      }
+      if (status === "SCHEDULED" && current.status === "CANCELLED") {
+        const order = await prisma.customerOrder.update({ where: { id: orderId }, data: { status: "SCHEDULED", cancelledAt: null, completedAt: null }, include: orderInclude });
+        return Response.json(order);
+      }
+      if (status === "SCHEDULED") return errorResponse(422, "ORDER_OPEN", "Desmarcá un producto para reabrir el pedido.");
+    }
+
     if (current.kind === "SERVICE" && current.status === "CANCELLED" && status === "SCHEDULED") {
       const fit = await checkReservationFit(prisma, {
         businessId,
@@ -143,21 +172,24 @@ async function updateStatus(businessId: string, orderId: string, actorId: string
   }
 }
 
-async function updateProductOrder(businessId: string, orderId: string, data: { customerId: string; scheduledFor: string; notes?: string; items: Array<{ productId: string; quantity: number }> }) {
+async function updateProductOrder(businessId: string, orderId: string, data: { customerId: string; scheduledFor: string; notes?: string; items: Array<{ productId: string; quantity: number }>; discount?: { kind: "NONE" } | { kind: "PERCENT"; percent: number } | { kind: "PRICE"; priceMinor: number } }) {
   try {
     const current = await prisma.customerOrder.findFirst({
       where: { id: orderId, businessId },
-      include: { items: { select: { productId: true, unitPriceMinor: true } } },
+      include: { items: { select: { productId: true, unitPriceMinor: true, deliveredAt: true } }, payments: { select: { amountMinor: true } } },
     });
     if (!current) return errorResponse(404, "ORDER_NOT_FOUND", "El pedido no existe.");
     if (current.kind !== "PRODUCT") return errorResponse(422, "NOT_A_PRODUCT_ORDER", "Este pedido no es de productos.");
-    if (current.status !== "SCHEDULED") return errorResponse(422, "ORDER_CLOSED", "Este pedido no se puede editar.");
+    if (current.status !== "SCHEDULED" || current.items.some((item) => item.deliveredAt)) return errorResponse(422, "ORDER_CLOSED", "Este pedido no se puede editar.");
 
     const customer = await prisma.customer.findFirst({ where: { id: data.customerId, businessId, deletedAt: null } });
     if (!customer) return errorResponse(422, "CUSTOMER_NOT_FOUND", "El cliente no pertenece a este negocio.");
 
     const built = await buildProductLines(businessId, data.items, current.items);
     if (!built.ok) return errorResponse(422, built.code, built.code === "PRODUCT_NOT_FOUND" ? "El producto no pertenece a este negocio." : "El importe del pedido es demasiado grande.");
+    const quoted = quoteOrder(built.amountMinor, data.discount);
+    if (!quoted.ok) return errorResponse(422, quoted.code, "El precio manual no puede superar el total de la lista.");
+    if (quoted.totalMinor < paidMinor(current.payments)) return errorResponse(422, "BUDGET_BELOW_PAID", "El precio no puede ser menor a lo ya cobrado.");
 
     const order = await prisma.$transaction(async (tx) => {
       await tx.orderItem.deleteMany({ where: { orderId } });
@@ -169,7 +201,10 @@ async function updateProductOrder(businessId: string, orderId: string, data: { c
           title: built.title,
           quantity: built.quantity,
           scheduledFor: new Date(`${data.scheduledFor}T12:00:00`),
-          amountMinor: built.amountMinor,
+          amountMinor: quoted.totalMinor,
+          subtotalMinor: quoted.subtotalMinor,
+          discountKind: quoted.discountKind,
+          discountPercentBps: quoted.discountPercentBps,
           notes: data.notes || null,
           items: { create: built.lines },
         },

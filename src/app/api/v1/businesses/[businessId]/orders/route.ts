@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { orderInclude } from "@/server/orders/order-include";
+import { quoteOrder } from "@/server/orders/order-price";
 import { buildProductLines } from "@/server/orders/product-lines";
 import { checkReservationFit } from "@/server/orders/reservation-booking";
 import { authorizeBusiness } from "@/server/auth/authorization";
@@ -6,14 +8,6 @@ import { errorResponse, unexpectedError } from "@/server/http";
 import { customerOrderSchema, productOrderCreateSchema, serviceReservationSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string }> };
-
-const orderInclude = {
-  customer: { select: { id: true, name: true, phone: true } },
-  product: { select: { id: true, name: true, priceMinor: true } },
-  items: { select: { id: true, productId: true, productName: true, quantity: true, unitPriceMinor: true, totalMinor: true } },
-  payments: { select: { id: true, amountMinor: true, paymentMethod: true, paidAt: true }, orderBy: { paidAt: "asc" as const } },
-  invoice: { select: { id: true, number: true, arcaStatus: true, cae: true } },
-} as const;
 
 export async function GET(_request: Request, context: Context) {
   const { businessId } = await context.params;
@@ -88,21 +82,36 @@ export async function POST(request: Request, context: Context) {
       if (!customer) return errorResponse(422, "CUSTOMER_NOT_FOUND", "El cliente no pertenece a este negocio.");
       const built = await buildProductLines(businessId, productOrder.data.items, []);
       if (!built.ok) return errorResponse(422, built.code, built.code === "PRODUCT_NOT_FOUND" ? "El producto no pertenece a este negocio." : "El importe del pedido es demasiado grande.");
-      const order = await prisma.customerOrder.create({
-        data: {
-          businessId,
-          customerId: customer.id,
-          createdById: access.user.id,
-          productId: built.productId,
-          kind: "PRODUCT",
-          title: built.title,
-          quantity: built.quantity,
-          scheduledFor: new Date(`${productOrder.data.scheduledFor}T12:00:00`),
-          amountMinor: built.amountMinor,
-          notes: productOrder.data.notes || null,
-          items: { create: built.lines },
-        },
-        include: orderInclude,
+      const quoted = quoteOrder(built.amountMinor, productOrder.data.discount);
+      if (!quoted.ok) return errorResponse(422, quoted.code, "El precio manual no puede superar el total de la lista.");
+      const paidMinor = productOrder.data.paidMinor ?? 0;
+      if (paidMinor > quoted.totalMinor) return errorResponse(422, "PAYMENT_ABOVE_BALANCE", "El pago supera el saldo.");
+      const order = await prisma.$transaction(async (tx) => {
+        const created = await tx.customerOrder.create({
+          data: {
+            businessId,
+            customerId: customer.id,
+            createdById: access.user.id,
+            productId: built.productId,
+            kind: "PRODUCT",
+            title: built.title,
+            quantity: built.quantity,
+            scheduledFor: new Date(`${productOrder.data.scheduledFor}T12:00:00`),
+            amountMinor: quoted.totalMinor,
+            subtotalMinor: quoted.subtotalMinor,
+            discountKind: quoted.discountKind,
+            discountPercentBps: quoted.discountPercentBps,
+            notes: productOrder.data.notes || null,
+            items: { create: built.lines },
+          },
+          include: orderInclude,
+        });
+        if (paidMinor > 0 && productOrder.data.paymentMethod) {
+          await tx.orderPayment.create({
+            data: { businessId, orderId: created.id, createdById: access.user.id, amountMinor: paidMinor, paymentMethod: productOrder.data.paymentMethod },
+          });
+        }
+        return tx.customerOrder.findFirstOrThrow({ where: { id: created.id }, include: orderInclude });
       });
       await prisma.activityEvent.create({
         data: {
@@ -111,7 +120,7 @@ export async function POST(request: Request, context: Context) {
           type: "ORDER_CREATED",
           entityType: "CustomerOrder",
           entityId: order.id,
-          metadata: { title: order.title, scheduledFor: productOrder.data.scheduledFor, customer: customer.name, amountMinor: built.amountMinor },
+          metadata: { title: order.title, scheduledFor: productOrder.data.scheduledFor, customer: customer.name, amountMinor: quoted.totalMinor, paidMinor },
         },
       });
       return Response.json(order, { status: 201 });
