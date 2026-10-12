@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { businessTrendMonths, coversPeriod, movementWindows, type MovementPeriod } from "@/lib/movement-period";
+import { businessTrendMonths, coversPeriod, movementWindows, type MovementWindow } from "@/lib/movement-period";
 
 export async function getPortfolioDashboard(userId: string) {
   const memberships = await prisma.membership.findMany({
@@ -104,13 +104,17 @@ export async function getMovement(businessId: string, now = new Date()) {
   const windows = movementWindows(now);
   const rangeStart = earliest(windows.month.start, windows.week.start);
   const rangeEnd = latest(windows.month.end, windows.week.end);
-  const [periodSales, periodPayments, periodExpenses] = await Promise.all([
+  const [periodSales, periodPayments, periodExpenses, totalSales, totalPayments, totalExpenses, sold] = await Promise.all([
     prisma.sale.findMany({ where: { businessId, status: "CONFIRMED", confirmedAt: { gte: rangeStart, lt: rangeEnd } }, select: { orderId: true, totalMinor: true, confirmedAt: true, items: { select: { quantity: true } } } }),
     prisma.orderPayment.findMany({ where: { businessId, paidAt: { gte: rangeStart, lt: rangeEnd } }, select: { amountMinor: true, paidAt: true } }),
     prisma.expense.findMany({ where: { businessId, deletedAt: null, expenseDate: { gte: rangeStart, lt: rangeEnd } }, select: { amountMinor: true, expenseDate: true } }),
+    sumRanges([businessId], "sale", [{ start: new Date(0), end: null }]),
+    sumRanges([businessId], "payment", [{ start: new Date(0), end: null }]),
+    sumRanges([businessId], "expense", [{ start: new Date(0), end: null }]),
+    prisma.saleItem.aggregate({ where: { sale: { businessId, status: "CONFIRMED", confirmedAt: { not: null } } }, _sum: { quantity: true } }),
   ]);
 
-  function movementTotals(period: MovementPeriod) {
+  function movementTotals(period: MovementWindow) {
     const window = windows[period];
     const sales = periodSales.filter((sale) => sale.confirmedAt && coversPeriod(sale.confirmedAt, window));
     const payments = periodPayments.filter((payment) => coversPeriod(payment.paidAt, window));
@@ -122,7 +126,16 @@ export async function getMovement(businessId: string, now = new Date()) {
     };
   }
 
-  return { month: movementTotals("month"), week: movementTotals("week"), day: movementTotals("day") };
+  return {
+    month: movementTotals("month"),
+    week: movementTotals("week"),
+    day: movementTotals("day"),
+    total: {
+      incomeMinor: (totalSales[0] ?? 0) + (totalPayments[0] ?? 0),
+      expensesMinor: totalExpenses[0] ?? 0,
+      productsSold: sold._sum.quantity ?? 0,
+    },
+  };
 }
 
 export async function getBusinessDashboard(businessId: string, now = new Date()) {

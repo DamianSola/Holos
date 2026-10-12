@@ -10,13 +10,14 @@ const WEEKDAY_FROM_MONDAY: Record<string, number> = {
   Sun: 6,
 };
 
-export type MovementPeriod = "month" | "week" | "day";
+export type MovementPeriod = "month" | "week" | "day" | "total";
+export type MovementWindow = Exclude<MovementPeriod, "total">;
 
 export type PeriodWindow = { start: Date; end: Date };
 
 type CalendarDate = { year: number; month: number; day: number };
 
-export function movementWindows(now: Date): Record<MovementPeriod, PeriodWindow> {
+export function movementWindows(now: Date): Record<MovementWindow, PeriodWindow> {
   const today = calendarDate(now);
   const weekStart = addDays(today, -weekdayFromMonday(now));
   const nextMonth = today.month === 12

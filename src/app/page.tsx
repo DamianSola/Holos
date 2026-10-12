@@ -4,6 +4,8 @@ import { MarketingHome } from "@/components/marketing/marketing-home";
 import { BusinessPage } from "@/components/modules/business-page";
 import { workspaceIsOpen } from "@/server/billing/access";
 import { getSessionUser } from "@/server/auth/session";
+import { prisma } from "@/lib/db";
+import { monthlyAmountArs } from "@/server/billing/plan";
 import { getPortfolioDashboard } from "@/server/services/dashboard";
 import { getBusinessDirectory } from "@/server/services/directory";
 import { redirect } from "next/navigation";
@@ -15,13 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
   if (user) return { title: "Holos" };
   return {
     title: "Holos — El negocio, entero",
-    description: "Holos administra comercios chicos: una venta actualiza stock, cliente, factura y tablero. Varios negocios, equipo con roles, en pesos.",
+    description: "Ventas, stock, clientes y el día del negocio, en un solo lugar. 14 días gratis.",
   };
 }
 
 export default async function Home() {
   const user = await getSessionUser();
-  if (!user) return <MarketingHome />;
+  if (!user) return <MarketingHome proof={await publicProof()} monthlyArs={monthlyAmountArs()} />;
   if (!(await workspaceIsOpen(user))) redirect("/billing");
   const [portfolio, directory] = await Promise.all([
     getPortfolioDashboard(user.id),
@@ -33,4 +35,16 @@ export default async function Home() {
       <BusinessPage initialPortfolio={portfolio} initialBusinesses={directory} />
     </WorkspaceShell>
   );
+}
+
+async function publicProof() {
+  try {
+    const [users, businesses] = await Promise.all([
+      prisma.user.count({ where: { deletedAt: null, status: "ACTIVE" } }),
+      prisma.business.count({ where: { deletedAt: null } }),
+    ]);
+    return { users, businesses };
+  } catch {
+    return null;
+  }
 }

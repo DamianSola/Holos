@@ -9,6 +9,7 @@ const periods: Array<{ id: MovementPeriod; label: string }> = [
   { id: "month", label: "Mes" },
   { id: "week", label: "Semana" },
   { id: "day", label: "Día" },
+  { id: "total", label: "Total" },
 ];
 
 export function MovementPeriod({ businessId, service, movement: initialMovement }: { businessId: string; service: boolean; movement: Record<MovementPeriod, Totals> }) {
@@ -73,12 +74,22 @@ export function MovementPeriod({ businessId, service, movement: initialMovement 
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
       <section className="status-grid" aria-label="Movimiento del negocio" aria-busy={loading}>
-        <StatusCard label={selectedDay ? `${service ? "Ingresos" : "Ventas"} del ${range}` : `${service ? "Ingresos" : "Ventas"} de ${range}`} value={formatMoney(totals.incomeMinor)} tone="ready" />
-        <StatusCard label={selectedDay ? `Gastos del ${range}` : `Gastos de ${range}`} value={formatMoney(totals.expensesMinor)} tone="pending" />
-        <StatusCard label={selectedDay ? `Resultado del ${range}` : `Resultado de ${range}`} value={formatMoney(totals.incomeMinor - totals.expensesMinor)} tone={totals.incomeMinor - totals.expensesMinor >= 0 ? "ready" : "pending"} />
+        <StatusCard label={periodLabel(period, range, selectedDay, service, "income")} value={formatMoney(totals.incomeMinor)} tone="ready" />
+        <StatusCard label={periodLabel(period, range, selectedDay, service, "expenses")} value={formatMoney(totals.expensesMinor)} tone="pending" />
+        <StatusCard label={periodLabel(period, range, selectedDay, service, "result")} value={formatMoney(totals.incomeMinor - totals.expensesMinor)} tone={totals.incomeMinor - totals.expensesMinor >= 0 ? "ready" : "pending"} />
       </section>
     </>
   );
+}
+
+function periodLabel(period: MovementPeriod, range: string, selectedDay: boolean, service: boolean, kind: "income" | "expenses" | "result") {
+  if (period === "total") {
+    if (kind === "income") return `${service ? "Ingresos" : "Ventas"} desde el inicio`;
+    if (kind === "expenses") return "Gastos desde el inicio";
+    return "Resultado desde el inicio";
+  }
+  const prefix = kind === "income" ? (service ? "Ingresos" : "Ventas") : kind === "expenses" ? "Gastos" : "Resultado";
+  return selectedDay ? `${prefix} del ${range}` : `${prefix} de ${range}`;
 }
 
 function cardRange(period: MovementPeriod, anchor: string, today: string) {
