@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MovementPeriod } from "@/lib/movement-period";
 
 type Totals = { incomeMinor: number; expensesMinor: number; productsSold: number };
@@ -11,7 +11,7 @@ const periods: Array<{ id: MovementPeriod; label: string }> = [
   { id: "day", label: "Día" },
 ];
 
-export function MovementPeriod({ businessId, service, movement: initialMovement, pulseHeading, activity, children }: { businessId: string; service: boolean; movement: Record<MovementPeriod, Totals>; pulseHeading: string; activity: ReactNode; children: ReactNode }) {
+export function MovementPeriod({ businessId, service, movement: initialMovement }: { businessId: string; service: boolean; movement: Record<MovementPeriod, Totals> }) {
   const today = useMemo(todayKey, []);
   const [period, setPeriod] = useState<MovementPeriod>("month");
   const [draft, setDraft] = useState(today);
@@ -75,14 +75,7 @@ export function MovementPeriod({ businessId, service, movement: initialMovement,
       <section className="status-grid" aria-label="Movimiento del negocio" aria-busy={loading}>
         <StatusCard label={selectedDay ? `${service ? "Ingresos" : "Ventas"} del ${range}` : `${service ? "Ingresos" : "Ventas"} de ${range}`} value={formatMoney(totals.incomeMinor)} tone="ready" />
         <StatusCard label={selectedDay ? `Gastos del ${range}` : `Gastos de ${range}`} value={formatMoney(totals.expensesMinor)} tone="pending" />
-        {children}
-      </section>
-      <section className="dashboard-lower-grid">
-        {activity}
-        <div className="panel next-panel">
-          <p className="eyebrow">Pulso</p>
-          <h2>{pulseHeading}</h2>
-        </div>
+        <StatusCard label={selectedDay ? `Resultado del ${range}` : `Resultado de ${range}`} value={formatMoney(totals.incomeMinor - totals.expensesMinor)} tone={totals.incomeMinor - totals.expensesMinor >= 0 ? "ready" : "pending"} />
       </section>
     </>
   );

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { coversPeriod, movementWindows, type MovementPeriod } from "@/lib/movement-period";
+import { businessTrendMonths, coversPeriod, movementWindows, type MovementPeriod } from "@/lib/movement-period";
 
 export async function getPortfolioDashboard(userId: string) {
   const memberships = await prisma.membership.findMany({
@@ -126,38 +126,59 @@ export async function getMovement(businessId: string, now = new Date()) {
 }
 
 export async function getBusinessDashboard(businessId: string, now = new Date()) {
-  const [movement, customers, criticalProducts, activity, productCount, supplierCount, memberCount, recentSales, recentPayments, scheduledServices, business, members] = await Promise.all([
+  const day = movementWindows(now).day;
+  const months = businessTrendMonths(now);
+  const ranges = months.map((month) => ({ start: month.start, end: month.end }));
+  const [movement, saleSums, paymentSums, expenseSums, criticalProducts, activity, recentSales, recentPayments, business, members, openProductOrders, openServiceOrders, todayVisits, schedule] = await Promise.all([
     getMovement(businessId, now),
-    prisma.customer.count({ where: { businessId, deletedAt: null } }),
-    prisma.product.count({ where: { businessId, status: "ACTIVE", deletedAt: null, stock: { lte: prisma.product.fields.minimumStock } } }),
+    sumRanges([businessId], "sale", ranges),
+    sumRanges([businessId], "payment", ranges),
+    sumRanges([businessId], "expense", ranges),
+    prisma.product.findMany({ where: { businessId, status: "ACTIVE", deletedAt: null, stock: { lte: prisma.product.fields.minimumStock } }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 8 }),
     prisma.activityEvent.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 10 }),
-    prisma.product.count({ where: { businessId, status: "ACTIVE", deletedAt: null } }),
-    prisma.supplier.count({ where: { businessId, deletedAt: null } }),
-    prisma.membership.count({ where: { businessId, deletedAt: null } }),
-    prisma.sale.findMany({ where: { businessId }, select: { id: true, totalMinor: true, status: true, confirmedAt: true, createdAt: true, customer: { select: { name: true } }, invoice: { select: { number: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
-    prisma.orderPayment.findMany({ where: { businessId }, select: { id: true, amountMinor: true, paidAt: true, order: { select: { title: true, customer: { select: { name: true } } } } }, orderBy: { paidAt: "desc" }, take: 8 }),
-    prisma.customerOrder.count({ where: { businessId, kind: "SERVICE", status: "SCHEDULED" } }),
+    prisma.sale.findMany({ where: { businessId }, select: { id: true, totalMinor: true, status: true, confirmedAt: true, createdAt: true, customer: { select: { name: true } }, invoice: { select: { number: true } } }, orderBy: { createdAt: "desc" }, take: 5 }),
+    prisma.orderPayment.findMany({ where: { businessId }, select: { id: true, amountMinor: true, paidAt: true, order: { select: { id: true, title: true, customer: { select: { name: true } } } } }, orderBy: { paidAt: "desc" }, take: 8 }),
     prisma.business.findUnique({ where: { id: businessId }, select: { id: true, name: true, legalName: true, taxId: true, kind: true } }),
     prisma.membership.findMany({ where: { businessId, deletedAt: null }, select: { user: { select: { id: true, name: true, email: true } } }, orderBy: { createdAt: "asc" } }),
+    prisma.customerOrder.findMany({
+      where: { businessId, kind: "PRODUCT", status: "SCHEDULED" },
+      select: { id: true, amountMinor: true, customer: { select: { name: true } }, items: { select: { deliveredAt: true, totalMinor: true } }, payments: { select: { amountMinor: true } } },
+      orderBy: { scheduledFor: "asc" },
+      take: 100,
+    }),
+    prisma.customerOrder.findMany({
+      where: { businessId, kind: "SERVICE", status: "SCHEDULED" },
+      select: { amountMinor: true, payments: { select: { amountMinor: true } } },
+      take: 200,
+    }),
+    prisma.customerOrder.findMany({
+      where: { businessId, kind: "SERVICE", status: { not: "CANCELLED" }, scheduledFor: { gte: day.start, lt: day.end } },
+      select: { id: true, title: true, scheduledFor: true, customer: { select: { name: true } } },
+      orderBy: { scheduledFor: "asc" },
+      take: 8,
+    }),
+    prisma.reservationSchedule.findUnique({ where: { businessId }, select: { mode: true } }),
   ]);
 
   return {
     movement,
-    salesMonthMinor: movement.month.incomeMinor,
+    trend: months.map((month, index) => ({
+      label: month.label,
+      current: month.current,
+      incomeMinor: (saleSums[index] ?? 0) + (paymentSums[index] ?? 0),
+      expensesMinor: expenseSums[index] ?? 0,
+    })),
     salesTodayMinor: movement.day.incomeMinor,
-    productsSold: movement.month.productsSold,
-    customers,
     criticalProducts,
     activity,
-    productCount,
-    supplierCount,
-    memberCount,
-    expensesMonthMinor: movement.month.expensesMinor,
-    scheduledServices,
     recentSales,
     recentPayments,
     business,
     members,
+    openProductOrders,
+    serviceDueMinor: openServiceOrders.reduce((total, order) => total + Math.max(0, (order.amountMinor ?? 0) - order.payments.reduce((paid, payment) => paid + payment.amountMinor, 0)), 0),
+    todayVisits,
+    scheduleMode: schedule?.mode ?? null,
   };
 }
 

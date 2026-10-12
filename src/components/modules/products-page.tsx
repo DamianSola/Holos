@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { PlusIcon } from "@/components/brand/nav-icons";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
@@ -95,7 +96,7 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
 
   return (
     <ModuleLayout eyebrow="Operación" title={stockMode ? "Stock" : "Productos"}>
-      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}>{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button></div>
+      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button></div>
       {error && !formOpen && !stockPrompt && <p className="form-error" role="alert">{error}</p>}
       {listed.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder={stockMode ? "Nombre o tipo" : "Nombre o tipo"} />}
       {loading ? <div className="module-state">Cargando...</div> : listed.length === 0 ? <div className="module-state">{stockMode ? "Todavía no hay insumos ni herramientas." : "Todavía no hay productos."}</div> : visible.length ? (
@@ -104,11 +105,10 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
             const low = product.stock <= product.minimumStock;
             return (
               <article className="record-row products" key={product.id}>
-                <strong>{product.name}</strong>
-                <span>{stockMode ? kindLabel(product.catalogKind) : (product.category || "—")}</span>
+                <strong className="record-who">{product.name}</strong>
                 <strong className="record-money">{stockMode ? `${product.stock} un.` : formatMoney(product.priceMinor)}</strong>
-                <span className={low ? "record-alert" : undefined}>{stockMode ? `mín. ${product.minimumStock}` : low ? `${product.stock} un. · Bajo` : `${product.stock} un.`}</span>
-                <button className="secondary-button" type="button" onClick={() => setViewing(product)}>Ver</button>
+                <span className="record-meta"><span className="record-kind">{stockMode ? kindLabel(product.catalogKind) : (product.category || "—")}</span><span className={low ? "record-stock record-alert" : "record-stock"}>{stockMode ? `mín. ${product.minimumStock}` : low ? `${product.stock} un. · Bajo` : `${product.stock} un.`}</span></span>
+                <span className="record-actions"><button className="secondary-button record-view" type="button" onClick={() => setViewing(product)}>Ver</button></span>
               </article>
             );
           })}

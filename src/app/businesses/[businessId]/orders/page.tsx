@@ -12,7 +12,7 @@ export default async function OrdersRoute({ params, searchParams }: { params: Pr
   return (
     <WorkspaceShell businessId={businessId}>
       {kind === "SERVICE"
-        ? <ServiceReservationsPage businessId={businessId} businessName={membership.business.name} />
+        ? <ServiceReservationsPage businessId={businessId} businessName={membership.business.name} openOrderId={openOrderId} />
         : <OrdersPage businessId={businessId} businessKind={kind} openOrderId={openOrderId} />}
     </WorkspaceShell>
   );

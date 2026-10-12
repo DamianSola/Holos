@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { HolosLogo } from "@/components/brand/holos-logo";
+import { NavIcon, type NavIconName } from "@/components/brand/nav-icons";
 import { rememberBusiness, type ShellBusiness } from "@/lib/business-context";
 
 type SidebarProps = {
@@ -14,7 +15,7 @@ type SidebarProps = {
   onClose: () => void;
 };
 
-type NavItem = { label: string; href: string };
+type NavItem = { label: string; href: string; icon: NavIconName };
 
 export function Sidebar({ businessId, businessKind = "STORE", businessName = "", businesses = [], isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
@@ -22,23 +23,23 @@ export function Sidebar({ businessId, businessKind = "STORE", businessName = "",
   const name = businessName || businesses.find((business) => business.id === businessId)?.name || "Este negocio";
   const operation: NavItem[] = businessId
     ? [
-        ...(service ? [] : [{ label: "Ventas", href: `/businesses/${businessId}/sales` }]),
-        { label: service ? "Reservas" : "Pedidos", href: `/businesses/${businessId}/orders` },
-        ...(service ? [{ label: "Stock", href: `/businesses/${businessId}/stock` }] : [{ label: "Productos", href: `/businesses/${businessId}/products` }]),
-        { label: "Clientes", href: `/businesses/${businessId}/customers` },
-        { label: "Proveedores", href: `/businesses/${businessId}/suppliers` },
-        { label: "Gastos", href: `/businesses/${businessId}/expenses` },
+        ...(service ? [] : [{ label: "Ventas", href: `/businesses/${businessId}/sales`, icon: "sale" as const }]),
+        { label: service ? "Reservas" : "Pedidos", href: `/businesses/${businessId}/orders`, icon: service ? "calendar" as const : "order" as const },
+        ...(service ? [{ label: "Stock", href: `/businesses/${businessId}/stock`, icon: "stock" as const }] : [{ label: "Productos", href: `/businesses/${businessId}/products`, icon: "product" as const }]),
+        { label: "Clientes", href: `/businesses/${businessId}/customers`, icon: "customer" as const },
+        { label: "Proveedores", href: `/businesses/${businessId}/suppliers`, icon: "supplier" as const },
+        { label: "Gastos", href: `/businesses/${businessId}/expenses`, icon: "expense" as const },
       ]
     : [];
   const admin: NavItem[] = businessId
     ? [
-        { label: "Facturación", href: `/businesses/${businessId}/fiscal` },
-        { label: "Equipo", href: `/businesses/${businessId}/team` },
+        { label: "Facturación", href: `/businesses/${businessId}/fiscal`, icon: "invoice" },
+        { label: "Equipo", href: `/businesses/${businessId}/team`, icon: "team" },
       ]
     : [];
   const account: NavItem[] = [
-    { label: "Plan", href: "/billing" },
-    { label: "Perfil", href: "/profile" },
+    { label: "Plan", href: "/billing", icon: "plan" },
+    { label: "Perfil", href: "/profile", icon: "profile" },
   ];
 
   return (
@@ -57,7 +58,7 @@ export function Sidebar({ businessId, businessKind = "STORE", businessName = "",
           <div className="sidebar-section-label">Operación</div>
           <nav>
             <ul className="navigation-list">
-              <NavLink item={{ label: "Tablero", href: "/" }} pathname={pathname} onClose={onClose} />
+              <NavLink item={{ label: "Tablero", href: "/", icon: "board" }} pathname={pathname} onClose={onClose} />
               {businessId ? (
                 <BusinessSwitch
                   businessId={businessId}
@@ -126,7 +127,7 @@ function BusinessSwitch({
   return (
     <li className={`business-switch${open ? " is-open" : ""}`} ref={rootRef}>
       <a className={`navigation-link${active ? " is-active" : ""}`} href={href} aria-current={active ? "page" : undefined} onClick={onClose}>
-        <span className="nav-mark" aria-hidden="true" />
+        <NavIcon name="store" />
         <span className="business-switch-name">{name}</span>
       </a>
       {others.length > 0 && (
@@ -181,7 +182,7 @@ function NavLink({ item, pathname, onClose }: { item: NavItem; pathname: string;
   return (
     <li>
       <a className={`navigation-link${active ? " is-active" : ""}`} href={item.href} aria-current={active ? "page" : undefined} onClick={onClose}>
-        <span className="nav-mark" aria-hidden="true" />
+        <NavIcon name={item.icon} />
         {item.label}
       </a>
     </li>

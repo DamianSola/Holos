@@ -22,7 +22,7 @@ export function RecentActivity({ events }: { events: ActivityEvent[] }) {
       {open ? (
         <div id="recent-activity">
           {events.length ? (
-            <div className="data-list">{events.map((event) => <div className="data-row" key={event.id}><span>{event.type}</span><span>{new Date(event.createdAt).toLocaleString("es-AR")}</span></div>)}</div>
+            <div className="data-list">{events.map((event) => <div className="data-row" key={event.id}><span>{activityLabel(event.type)}</span><span>{new Date(event.createdAt).toLocaleString("es-AR")}</span></div>)}</div>
           ) : (
             <div className="empty-state"><span className="empty-state-mark" aria-hidden="true">—</span><p>Todavía no hay actividad registrada.</p></div>
           )}
@@ -30,4 +30,24 @@ export function RecentActivity({ events }: { events: ActivityEvent[] }) {
       ) : null}
     </div>
   );
+}
+
+const activityLabels: Record<string, string> = {
+  SALE_CONFIRMED: "Venta confirmada",
+  SALE_DELETED: "Venta eliminada",
+  SALE_CANCELLED: "Venta cancelada",
+  ORDER_CREATED: "Pedido creado",
+  ORDER_DELIVERED: "Entrega de pedido",
+  ORDER_CANCELLED: "Pedido cancelado",
+  ORDER_COMPLETED: "Pedido cerrado",
+  ORDER_REOPENED: "Pedido reabierto",
+  ORDER_PAYMENT: "Cobro de pedido",
+  SERVICE_SCHEDULED: "Reserva agendada",
+  RESERVATION_UPDATED: "Reserva actualizada",
+  RESERVATION_PAYMENT: "Cobro de reserva",
+  RESERVATION_INVOICED: "Reserva facturada",
+};
+
+function activityLabel(type: string) {
+  return activityLabels[type] ?? "Movimiento";
 }

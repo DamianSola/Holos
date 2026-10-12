@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coversPeriod, inclusiveCivilRange, movementWindows } from "@/lib/movement-period";
+import { businessTrendMonths, coversPeriod, inclusiveCivilRange, movementWindows } from "@/lib/movement-period";
 
 describe("movement windows in Argentina", () => {
   it("uses the current month, Monday-Sunday week, and today from midnight", () => {
@@ -28,6 +28,13 @@ describe("movement windows in Argentina", () => {
       end: new Date("2026-10-07T03:00:00.000Z"),
     });
     expect(inclusiveCivilRange("2026-02-31", "2026-02-31")).toBeNull();
+  });
+
+  it("builds six Argentina months ending in the current one", () => {
+    const months = businessTrendMonths(new Date("2026-10-06T15:00:00.000Z"));
+    expect(months).toHaveLength(6);
+    expect(months[0]).toMatchObject({ start: new Date("2026-05-01T03:00:00.000Z"), end: new Date("2026-06-01T03:00:00.000Z"), current: false });
+    expect(months[5]).toMatchObject({ start: new Date("2026-10-01T03:00:00.000Z"), end: new Date("2026-11-01T03:00:00.000Z"), current: true });
   });
 
   it("keeps a sale on the next month inside the week and outside the month", () => {

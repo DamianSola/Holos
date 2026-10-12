@@ -34,6 +34,22 @@ export function coversPeriod(at: Date, window: PeriodWindow) {
   return at >= window.start && at < window.end;
 }
 
+export function businessTrendMonths(now: Date, count = 6) {
+  const today = calendarDate(now);
+  const first = addMonths({ year: today.year, month: today.month, day: 1 }, 1 - count);
+  return Array.from({ length: count }, (_, index) => {
+    const month = addMonths(first, index);
+    const next = addMonths(month, 1);
+    const start = zonedMidnight(month);
+    return {
+      label: new Intl.DateTimeFormat("es-AR", { month: "short", timeZone: TIME_ZONE }).format(start).replace(".", ""),
+      start,
+      end: zonedMidnight(next),
+      current: month.year === today.year && month.month === today.month,
+    };
+  });
+}
+
 export function inclusiveCivilRange(from: string, to: string): PeriodWindow | null {
   const startDate = civilDate(from);
   const endDate = civilDate(to);
@@ -68,6 +84,11 @@ function weekdayFromMonday(instant: Date) {
   const index = WEEKDAY_FROM_MONDAY[weekday];
   if (index === undefined) throw new Error(`Día de semana desconocido: ${weekday}`);
   return index;
+}
+
+function addMonths(date: CalendarDate, months: number): CalendarDate {
+  const shifted = new Date(Date.UTC(date.year, date.month - 1 + months, 1));
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: 1 };
 }
 
 function addDays(date: CalendarDate, days: number): CalendarDate {

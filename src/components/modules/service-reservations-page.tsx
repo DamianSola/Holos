@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { PlusIcon } from "@/components/brand/nav-icons";
 import { CustomerPicker, type CustomerChoice } from "@/components/forms/customer-picker";
+import { PaymentForm } from "@/components/forms/payment-form";
 import { ModuleLayout } from "@/components/modules/customers-page";
 import { SendReceiptWhatsapp } from "@/components/whatsapp-link";
 import { collectionLabel, paidMinor, paymentFits, remainingMinor } from "@/lib/reservation-money";
@@ -36,7 +38,7 @@ const paymentMethods: Array<{ value: PaymentMethod; label: string }> = [
 const weekdayLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const weekdayNumbers = [1, 2, 3, 4, 5, 6, 7];
 
-export function ServiceReservationsPage({ businessId, businessName }: { businessId: string; businessName: string }) {
+export function ServiceReservationsPage({ businessId, businessName, openOrderId }: { businessId: string; businessName: string; openOrderId?: string }) {
   const [orders, setOrders] = useState<Reservation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [schedule, setSchedule] = useState<ReservationSchedule>(defaultSchedule);
@@ -95,6 +97,15 @@ export function ServiceReservationsPage({ businessId, businessName }: { business
     void loadInitialData();
     return () => { cancelled = true; };
   }, [businessId]);
+
+  useEffect(() => {
+    if (!openOrderId) return;
+    const match = orders.find((order) => order.id === openOrderId);
+    if (!match) return;
+    setCursor(new Date(match.scheduledFor));
+    setOpenId(match.id);
+    if (match.status === "CANCELLED") setShowCancelled(true);
+  }, [openOrderId, orders]);
 
   const visible = useMemo(() => orders.filter((order) => showCancelled || order.status !== "CANCELLED"), [orders, showCancelled]);
   const byDay = useMemo(() => {
@@ -282,7 +293,7 @@ export function ServiceReservationsPage({ businessId, businessName }: { business
           <button className="secondary-button" type="button" onClick={() => setCursor((current) => shiftCursor(current, view, 1))}>Siguiente</button>
         </div>
         <button className="secondary-button" type="button" onClick={() => setCupoOpen(true)}>Cupo</button>
-        <button className="auth-submit" type="button" onClick={() => (schedule.mode === "TURN" && slotsOf(schedule).length === 0 ? setCupoOpen(true) : openCreate(dateKey(new Date())))}>Nueva reserva</button>
+        <button className="auth-submit" type="button" onClick={() => (schedule.mode === "TURN" && slotsOf(schedule).length === 0 ? setCupoOpen(true) : openCreate(dateKey(new Date())))}><PlusIcon />Nueva reserva</button>
       </div>
       <div className="reservation-caption">
         <strong>{rangeLabel}{schedule.mode === "TURN" && schedule.fixedPlace ? ` · ${schedule.fixedPlace}` : ""}</strong>
@@ -314,7 +325,7 @@ export function ServiceReservationsPage({ businessId, businessName }: { business
                 ) : dayOrders.length ? <div className="record-scroll"><div className="record-list reservations">{dayOrders.map((order) => {
                   const budget = order.amountMinor ?? 0;
                   const paid = paidMinor(order.payments);
-                  return <article className="record-row reservations" key={order.id}><strong>{order.customer.name}</strong><span>{order.title.trim() || "—"}</span><span>{order.place ?? "—"}</span><span>{collectionLabel(budget, paid)}{budget > 0 ? ` · ${formatMoney(paid)} de ${formatMoney(budget)}` : ""}</span><button className="secondary-button" type="button" onClick={() => openReservation(order)}>Ver</button></article>;
+                  return <article className="record-row reservations" key={order.id}><strong className="record-who">{order.customer.name}</strong><strong className="record-money">{collectionLabel(budget, paid)}{budget > 0 ? ` · ${formatMoney(paid)} de ${formatMoney(budget)}` : ""}</strong><span className="record-meta"><span className="record-note">{order.title.trim() || "—"}</span><span className="record-place">{order.place ?? "—"}</span></span><span className="record-actions"><button className="secondary-button record-view" type="button" onClick={() => openReservation(order)}>Ver</button></span></article>;
                 })}</div></div> : <p className="agenda-empty">Sin reservas.</p>}
               </section>
             );
@@ -587,17 +598,7 @@ function ReservationDetail({ businessId, businessName, order, error, saving, pay
         </ul>
       ) : <p className="agenda-empty">Todavía no hay pagos.</p>}
       {order.status !== "CANCELLED" && balance > 0 && budget > 0 && (
-        <form className="reservation-pay" onSubmit={onPay}>
-          <label>Monto
-            <input type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => onPaymentAmount(event.target.value)} required />
-          </label>
-          <label>Medio
-            <select value={paymentMethod} onChange={(event) => onPaymentMethod(event.target.value as PaymentMethod)}>
-              {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
-            </select>
-          </label>
-          <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : "Agregar pago"}</button>
-        </form>
+        <PaymentForm balanceMinor={balance} amount={paymentAmount} method={paymentMethod} saving={saving} onAmount={onPaymentAmount} onMethod={onPaymentMethod} onSubmit={onPay} />
       )}
       <div className="customer-actions">
         {order.invoice ? (

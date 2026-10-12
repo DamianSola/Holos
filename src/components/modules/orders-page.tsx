@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { PlusIcon } from "@/components/brand/nav-icons";
 import { CustomerPicker } from "@/components/forms/customer-picker";
+import { PaymentForm } from "@/components/forms/payment-form";
 import { FormModal } from "@/components/forms/form-modal";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
@@ -317,7 +319,7 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
         <div className="summary-card"><span>Abiertos</span><strong>{openOrders.length}</strong></div>
         <div className="summary-card"><span>Por cobrar</span><strong>{formatMoney(dueMinor)}</strong></div>
       </div>
-      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}>Nuevo pedido</button></div>
+      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />Nuevo pedido</button></div>
       {formOpen && <FormModal title={editingId ? "Editar pedido" : "Nuevo pedido"} onClose={() => { setFormOpen(false); resetForm(); }}>
         <form className="customer-form" onSubmit={(event) => void save(event)}>
           <div className="customer-form-grid">
@@ -424,9 +426,9 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
             const delivered = linesOnCard.filter((line) => lineIsDelivered(order, line)).length;
             return (
               <article className="record-row orders" key={order.id}>
-                <strong>{order.customer.name}</strong>
-                <span>{order.kind === "PRODUCT" ? orderRowPhrase(order.status, delivered, linesOnCard.length, chargeOf(order), paidOf(order), formatMoney) : `${statusText(order)}${order.amountMinor === null ? "" : ` · ${formatMoney(order.amountMinor)}`}`}</span>
-                <button className="secondary-button" type="button" onClick={() => { setError(""); setAskCancel(false); setOpenOrder(order); }}>Ver</button>
+                <strong className="record-who">{order.customer.name}</strong>
+                <span className="record-phrase">{order.kind === "PRODUCT" ? orderRowPhrase(order.status, delivered, linesOnCard.length, chargeOf(order), paidOf(order), formatMoney) : `${statusText(order)}${order.amountMinor === null ? "" : ` · ${formatMoney(order.amountMinor)}`}`}</span>
+                <button className="secondary-button record-view" type="button" onClick={() => { setError(""); setAskCancel(false); setOpenOrder(order); }}>Ver</button>
               </article>
             );
           })}
@@ -504,15 +506,7 @@ function ProductDetail({ businessId, order, saving, error, askCancel, paymentAmo
       {order.status === "DONE" && order.sale && <p><a className="record-link" href={`/businesses/${businessId}/sales?venta=${order.sale.id}`}>Quedó en Ventas</a></p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {order.status !== "CANCELLED" && balance > 0 && (
-        <form className="reservation-pay" onSubmit={onPay}>
-          <label>Monto<input type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => onPaymentAmount(event.target.value)} required /></label>
-          <label>Medio
-            <select value={paymentMethod} onChange={(event) => onPaymentMethod(event.target.value as PaymentMethod)}>
-              {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
-            </select>
-          </label>
-          <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : "Agregar pago"}</button>
-        </form>
+        <PaymentForm balanceMinor={balance} amount={paymentAmount} method={paymentMethod} saving={saving} onAmount={onPaymentAmount} onMethod={onPaymentMethod} onSubmit={onPay} />
       )}
       {askCancel ? (
         <div className="customer-actions">

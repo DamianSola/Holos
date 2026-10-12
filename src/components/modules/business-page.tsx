@@ -106,12 +106,8 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
     window.open(`/api/v1/businesses/${businessId}/export?format=${format}`, "_blank", "noopener,noreferrer");
   }
 
-  const totals = useMemo(() => ({
-    businesses: businesses.length,
-    customers: businesses.reduce((sum, item) => sum + item.customerCount, 0),
-    products: businesses.reduce((sum, item) => sum + item.productCount, 0),
-    revenue: businesses.reduce((sum, item) => sum + item.salesMonthMinor, 0),
-  }), [businesses]);
+  const listed = useMemo(() => [...businesses].sort((left, right) => right.salesMonthMinor - left.salesMonthMinor || left.name.localeCompare(right.name, "es")), [businesses]);
+  const alerts = listed.filter((business) => business.criticalProducts > 0);
 
   return (
     <section className="module-page portfolio-page">
@@ -119,23 +115,64 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
       <h1>Todos tus negocios</h1>
 
       <div className="portfolio-stat-grid">
-        <MetricCard label="Negocios" value={String(initialPortfolio.totals.businessCount)} detail="con acceso activo" tone="neutral" icon="01" />
-        <MetricCard label="Ingresos del mes" value={formatMoney(initialPortfolio.totals.salesMonthMinor)} detail={`${formatMoney(initialPortfolio.totals.salesTodayMinor)} hoy`} tone="income" icon="$" trend={initialPortfolio.trend.map((period) => period.incomeMinor)} />
-        <MetricCard label="Gastos del mes" value={formatMoney(initialPortfolio.totals.expensesMonthMinor)} detail="registrados en todos" tone="expense" icon="-" trend={initialPortfolio.trend.map((period) => period.expensesMinor)} />
-        <MetricCard label="Resultado neto" value={formatMoney(initialPortfolio.totals.netMonthMinor)} detail="ingresos menos gastos" tone={initialPortfolio.totals.netMonthMinor >= 0 ? "income" : "expense"} icon="↗" trend={initialPortfolio.trend.map((period) => period.netMinor)} />
-        <MetricCard label="Clientes" value={String(initialPortfolio.totals.customerCount)} detail="en todos los negocios" tone="neutral" icon="◎" />
-        <MetricCard label="Stock crítico" value={String(initialPortfolio.totals.criticalProducts)} detail={`${initialPortfolio.totals.productCount} productos activos`} tone={initialPortfolio.totals.criticalProducts ? "expense" : "income"} icon="!" />
+        <article className="summary-card"><span>Entró hoy</span><strong>{formatMoney(initialPortfolio.totals.salesTodayMinor)}</strong></article>
+        <article className="summary-card"><span>Ingresos del mes</span><strong>{formatMoney(initialPortfolio.totals.salesMonthMinor)}</strong></article>
+        <article className="summary-card">
+          <span>Resultado del mes</span>
+          <strong className={initialPortfolio.totals.netMonthMinor >= 0 ? "metric-positive" : "metric-negative"}>{formatMoney(initialPortfolio.totals.netMonthMinor)}</strong>
+          <small>Gastos {formatMoney(initialPortfolio.totals.expensesMonthMinor)}</small>
+        </article>
       </div>
 
-      <section className="portfolio-health panel">
-        <div><p className="eyebrow">Salud operativa</p><h2>Tu portfolio está {initialPortfolio.totals.criticalProducts ? "pidiendo atención" : "en buen estado"}</h2></div>
-        <div className="health-meter"><span style={{ width: `${healthScore(initialPortfolio)}%` }} /><strong>{healthScore(initialPortfolio)}%</strong></div>
-      </section>
+      <MonthChart trend={initialPortfolio.trend} />
 
-      <section className="portfolio-trend panel">
-        <div className="panel-heading"><div><p className="eyebrow">Evolución consolidada</p><h2>Ingresos, gastos y resultado</h2></div><span className="panel-count">Últimos 6 meses</span></div>
-        <div className="trend-table-wrap"><table className="trend-table"><thead><tr><th>Período</th><th>Ingresos</th><th>Gastos</th><th>Resultado neto</th><th>Variación</th></tr></thead><tbody>{initialPortfolio.trend.map((period) => <tr className={period.current ? "is-current" : ""} key={`${period.label}-${period.current}`}><th scope="row">{period.label}{period.current && <span className="current-period">Actual</span>}</th><td className="income-cell">{formatMoney(period.incomeMinor)}</td><td className="expense-cell">{formatMoney(period.expensesMinor)}</td><td className={period.netMinor >= 0 ? "net-cell-positive" : "net-cell-negative"}>{formatMoney(period.netMinor)}</td><td><div className="change-list"><span>Ingresos <b className={deltaClass(period.incomeDeltaPercent)}>{formatChange(period.incomeDeltaPercent)}</b></span><span>Gastos <b className={deltaClass(period.expensesDeltaPercent)}>{formatChange(period.expensesDeltaPercent)}</b></span><span>Neto <b className={deltaClass(period.netDeltaPercent)}>{formatChange(period.netDeltaPercent)}</b></span></div></td></tr>)}</tbody></table></div>
-      </section>
+      {alerts.length > 0 && (
+        <ul className="portfolio-alerts">
+          {alerts.map((business) => (
+            <li key={business.id}>
+              <a href={`/businesses/${business.id}${business.kind === "SERVICE" ? "/stock" : "/products"}`}>{business.name} · {stockAlert(business.criticalProducts)}</a>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {success && <p className="form-success" role="status">{success}</p>}
+
+      <div className="portfolio-section-heading"><h2>Mis negocios</h2><span className="panel-count">{listed.length}</span></div>
+      {loading ? (
+        <div className="module-state">Cargando negocios...</div>
+      ) : listed.length ? (
+        <div className="business-directory">
+          {listed.map((business) => {
+            const service = business.kind === "SERVICE";
+            return (
+              <article className="business-row" key={business.id}>
+                <div className="business-row-who">
+                  {business.image ? <img className="business-logo" src={business.image} alt="" /> : <span className="business-mark" aria-hidden="true">{businessInitial(business.name)}</span>}
+                  <div>
+                    <strong>{business.name}</strong>
+                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {service ? "Servicios" : "Venta de productos"}</p>
+                  </div>
+                </div>
+                <div className="business-row-money is-today"><span>Hoy</span><strong>{formatMoney(business.salesTodayMinor)}</strong></div>
+                <div className="business-row-money is-month"><span>Este mes</span><strong>{formatMoney(business.salesMonthMinor)}</strong></div>
+                <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir</a>
+                {business.role === "OWNER" && (
+                  <div className="business-row-tools">
+                    <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />
+                    <button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button>
+                    <button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button>
+                    <button className="text-button" type="button" onClick={() => setPendingArchive(business)}>Archivar</button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="module-state">Todavía no creaste ningún negocio.</div>
+      )}
 
       <form className="customer-form" onSubmit={createBusiness}>
         <div className="customer-form-heading">
@@ -159,62 +196,6 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
         </div>
         <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Creando..." : "Crear negocio"}</button>
       </form>
-
-      {error && <p className="form-error" role="alert">{error}</p>}
-      {success && <p className="form-success" role="status">{success}</p>}
-
-      <div className="portfolio-section-heading"><div><p className="eyebrow">Directorio</p><h2>Mis negocios</h2></div><span className="panel-count">{totals.businesses} registrados</span></div>
-      {loading ? (
-        <div className="module-state">Cargando negocios...</div>
-      ) : businesses.length ? (
-        <div className="business-directory">
-          {businesses.map((business) => {
-            const service = business.kind === "SERVICE";
-            return (
-              <article className="business-entry" key={business.id}>
-                <header className="business-entry-head">
-                  {business.image ? <img className="business-logo" src={business.image} alt="" /> : <span className="business-mark" aria-hidden="true">{businessInitial(business.name)}</span>}
-                  <div>
-                    <strong>{business.name}</strong>
-                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {service ? "Servicios" : "Venta de productos"}</p>
-                  </div>
-                  <span className="customer-pill">{service ? "Servicios" : "Productos"}</span>
-                </header>
-
-                <dl className="business-entry-stats">
-                  <div><dt>Clientes</dt><dd>{business.customerCount}</dd></div>
-                  <div><dt>{service ? "Stock" : "Productos"}</dt><dd>{business.productCount}</dd></div>
-                  <div><dt>Stock crítico</dt><dd>{business.criticalProducts}</dd></div>
-                  <div><dt>Este mes</dt><dd>{formatMoney(business.salesMonthMinor)}</dd></div>
-                  <div><dt>Hoy</dt><dd>{formatMoney(business.salesTodayMinor)}</dd></div>
-                </dl>
-
-                <nav className="business-entry-nav" aria-label={`Accesos de ${business.name}`}>
-                  <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir negocio</a>
-                  {service ? null : <a className="secondary-button" href={`/businesses/${business.id}/sales`}>Vender</a>}
-                  <a className="secondary-button" href={`/businesses/${business.id}/orders`}>{service ? "Reservas" : "Pedidos"}</a>
-                  <a className="secondary-button" href={service ? `/businesses/${business.id}/stock` : `/businesses/${business.id}/products`}>{service ? "Stock" : "Productos"}</a>
-                  <a className="secondary-button" href={`/businesses/${business.id}/customers`}>Clientes</a>
-                  <a className="secondary-button" href="/">Tablero</a>
-                </nav>
-
-                {business.role === "OWNER" && (
-                  <div className="business-entry-owner">
-                    <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />
-                    <div className="business-entry-tools">
-                      <button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "json")}>Respaldo JSON</button>
-                      <button className="secondary-button" type="button" onClick={() => exportBusiness(business.id, "print")}>Guardar PDF</button>
-                      <button className="text-button" type="button" onClick={() => setPendingArchive(business)}>Archivar</button>
-                    </div>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="module-state">Todavía no creaste ningún negocio.</div>
-      )}
       {pendingArchive && <ConfirmModal title="Archivar negocio" message={`¿Archivar ${pendingArchive.name}? Primero descargá el respaldo si necesitás conservarlo fuera de la aplicación.`} onCancel={() => setPendingArchive(null)} onAccept={() => void archiveBusiness(pendingArchive)} />}
     </section>
   );
@@ -229,23 +210,55 @@ function formatMoney(valueMinor: number) {
   return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(valueMinor / 100);
 }
 
-function formatChange(value: number | null) {
-  if (value === null) return "base";
-  return `${value > 0 ? "+" : ""}${value}%`;
+function MonthChart({ trend }: { trend: Portfolio["trend"] }) {
+  const peak = Math.max(...trend.flatMap((period) => [period.incomeMinor, period.expensesMinor]), 1);
+  const currentIndex = trend.findIndex((period) => period.current);
+  const current = currentIndex >= 0 ? trend[currentIndex] : undefined;
+  const previous = currentIndex > 0 ? trend[currentIndex - 1].incomeMinor : null;
+  const phrase = incomePhrase(current?.incomeMinor ?? 0, previous);
+  return (
+    <section className="portfolio-chart panel" aria-label="Ingresos y gastos de los últimos 6 meses">
+      <div className="panel-heading">
+        <h2>Ingresos y gastos</h2>
+        {phrase && <p className={deltaClass(previous === null || previous === 0 ? 0 : (current?.incomeMinor ?? 0) - previous)}>{phrase}</p>}
+      </div>
+      <div className="chart-legend">
+        <span className="trend-income"><i className="trend-dot trend-income" />Ingresos</span>
+        <span className="trend-expenses"><i className="trend-dot trend-expenses" />Gastos</span>
+      </div>
+      <div className="month-chart">
+        {trend.map((period) => (
+          <div className={period.current ? "month-chart-col is-current" : "month-chart-col"} key={`${period.label}-${period.current}`} aria-label={`${period.label}: ingresos ${formatMoney(period.incomeMinor)}, gastos ${formatMoney(period.expensesMinor)}`}>
+            <div className="month-chart-bars" aria-hidden="true">
+              <span className="month-bar income" style={{ height: `${barHeight(period.incomeMinor, peak)}%` }} />
+              <span className="month-bar expense" style={{ height: `${barHeight(period.expensesMinor, peak)}%` }} />
+            </div>
+            <span className="month-chart-label">{period.label}{period.current ? " · actual" : ""}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function barHeight(value: number, peak: number) {
+  if (value <= 0) return 0;
+  return Math.max(8, Math.round((value / peak) * 100));
+}
+
+function incomePhrase(current: number, previous: number | null) {
+  if (previous === null) return "";
+  if (previous === 0) return current === 0 ? "Ingresos iguales al mes pasado" : "El mes pasado no hubo ingresos";
+  const delta = Math.round(((current - previous) / Math.abs(previous)) * 100);
+  if (delta === 0) return "Ingresos iguales al mes pasado";
+  return `Ingresos ${delta > 0 ? "+" : ""}${delta}% respecto al mes pasado`;
+}
+
+function stockAlert(count: number) {
+  return count === 1 ? "1 producto en stock crítico" : `${count} productos en stock crítico`;
 }
 
 function deltaClass(value: number | null) {
   if (value === null || value === 0) return "delta-flat";
   return value > 0 ? "delta-up" : "delta-down";
-}
-
-function MetricCard({ label, value, detail, tone, icon, trend = [] }: { label: string; value: string; detail: string; tone: "neutral" | "income" | "expense"; icon: string; trend?: number[] }) {
-  const maximum = Math.max(...trend, 1);
-  return <article className={`metric-card metric-card-${tone}`}><div className="metric-card-top"><span className="metric-icon" aria-hidden="true">{icon}</span><span className="metric-label">{label}</span></div><strong>{value}</strong><div className="metric-card-bottom"><small>{detail}</small>{trend.length > 0 && <span className="mini-chart" aria-hidden="true">{trend.map((point, index) => <i key={`${point}-${index}`} style={{ height: `${Math.max(15, (point / maximum) * 100)}%` }} />)}</span>}</div></article>;
-}
-
-function healthScore(portfolio: Portfolio) {
-  const stockPenalty = Math.min(portfolio.totals.criticalProducts * 8, 48);
-  const netPenalty = portfolio.totals.netMonthMinor < 0 ? 24 : 0;
-  return Math.max(18, 100 - stockPenalty - netPenalty);
 }

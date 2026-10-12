@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { PlusIcon } from "@/components/brand/nav-icons";
 import { FormModal } from "@/components/forms/form-modal";
 
 type Member = { id: string; name: string | null; email: string };
@@ -144,7 +145,7 @@ export function TasksPanel({ businessId, members }: { businessId: string; member
         </div>
         <div className="task-heading-actions">
           <span className="panel-count">{pendingCount} pendientes</span>
-          <button className="auth-submit task-new" type="button" onClick={() => { setError(""); setFormOpen(true); }}>Nueva tarea</button>
+          <button className="auth-submit task-new" type="button" onClick={() => { setError(""); setFormOpen(true); }}><PlusIcon />Nueva tarea</button>
         </div>
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
