@@ -11,13 +11,14 @@ type SidebarProps = {
   businessKind?: "STORE" | "SERVICE";
   businessName?: string;
   businesses?: ShellBusiness[];
+  platformAdmin?: boolean;
   isOpen: boolean;
   onClose: () => void;
 };
 
 type NavItem = { label: string; href: string; icon: NavIconName };
 
-export function Sidebar({ businessId, businessKind = "STORE", businessName = "", businesses = [], isOpen, onClose }: SidebarProps) {
+export function Sidebar({ businessId, businessKind = "STORE", businessName = "", businesses = [], platformAdmin = false, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const service = businessKind === "SERVICE";
   const name = businessName || businesses.find((business) => business.id === businessId)?.name || "Este negocio";
@@ -39,6 +40,7 @@ export function Sidebar({ businessId, businessKind = "STORE", businessName = "",
       ]
     : [];
   const account: NavItem[] = [
+    ...(platformAdmin ? [{ label: "Admin", href: "/admin", icon: "admin" as const }] : []),
     { label: "Plan", href: "/billing", icon: "plan" },
     { label: "Perfil", href: "/profile", icon: "profile" },
   ];

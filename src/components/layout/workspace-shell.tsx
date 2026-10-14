@@ -36,6 +36,7 @@ export async function WorkspaceShell({ children, businessId }: { children: React
       businessName={current?.name ?? ""}
       businesses={businesses}
       userName={user.name ?? user.email}
+      platformAdmin={user.platformAdmin}
       userImage={avatar?.image ?? ""}
       businessImage={logo?.image ?? ""}
       notifications={notifications}

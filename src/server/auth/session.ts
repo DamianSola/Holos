@@ -43,6 +43,7 @@ export const getSessionUser = cache(async function getSessionUser() {
           emailNormalized: true,
           name: true,
           status: true,
+          platformAdmin: true,
           createdAt: true,
           updatedAt: true,
           deletedAt: true,

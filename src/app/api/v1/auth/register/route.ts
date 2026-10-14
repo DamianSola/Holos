@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { errorResponse, isDatabaseInitializationError, unexpectedError } from "@/server/http";
 import { createSession } from "@/server/auth/session";
 import { trialEndsAtFrom } from "@/server/billing/plan";
+import { getPlatformSettings } from "@/server/billing/settings";
 import { imageSchema } from "@/server/validators/domain";
 
 const registerSchema = z.object({
@@ -11,6 +12,7 @@ const registerSchema = z.object({
   password: z.string().min(12).max(128),
   name: z.string().trim().min(1).max(120),
   image: imageSchema.optional(),
+  acceptedTerms: z.literal(true),
 }).strict();
 
 export async function POST(request: Request) {
@@ -19,6 +21,7 @@ export async function POST(request: Request) {
 
   const emailNormalized = parsed.data.email.toLowerCase();
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const settings = await getPlatformSettings();
 
   try {
     const user = await prisma.$transaction(async (tx) => {
@@ -26,7 +29,7 @@ export async function POST(request: Request) {
         data: { email: parsed.data.email, emailNormalized, passwordHash, name: parsed.data.name, image: parsed.data.image || null },
       });
       await tx.subscription.create({
-        data: { userId: created.id, status: "TRIALING", trialEndsAt: trialEndsAtFrom() },
+        data: { userId: created.id, status: "TRIALING", trialEndsAt: trialEndsAtFrom(new Date(), settings.trialDays) },
       });
       return created;
     });

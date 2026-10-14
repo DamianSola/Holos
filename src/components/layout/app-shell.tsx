@@ -14,12 +14,13 @@ type AppShellProps = Readonly<{
   businessKind?: "STORE" | "SERVICE";
   businessName?: string;
   businesses?: ShellBusiness[];
+  platformAdmin?: boolean;
   userImage?: string | null;
   businessImage?: string | null;
   notifications?: ShellNotification[];
 }>;
 
-export function AppShell({ children, businessId, userName, businessKind = "STORE", businessName = "", businesses = [], userImage = "", businessImage = "", notifications = [] }: AppShellProps) {
+export function AppShell({ children, businessId, userName, businessKind = "STORE", businessName = "", businesses = [], platformAdmin = false, userImage = "", businessImage = "", notifications = [] }: AppShellProps) {
   const pathname = usePathname();
   const [isNavigationOpen, setNavigationOpen] = useState(false);
 
@@ -38,6 +39,7 @@ export function AppShell({ children, businessId, userName, businessKind = "STORE
         businessKind={businessKind}
         businessName={businessName}
         businesses={businesses}
+        platformAdmin={platformAdmin}
         isOpen={isNavigationOpen}
         onClose={() => setNavigationOpen(false)}
       />

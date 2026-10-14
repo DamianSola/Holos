@@ -79,6 +79,7 @@ function sectionLabel(pathname: string, businessKind: "STORE" | "SERVICE") {
   if (pathname === "/") return "Tablero";
   if (pathname.startsWith("/profile")) return "Perfil";
   if (pathname.startsWith("/billing")) return "Plan";
+  if (pathname.startsWith("/admin")) return "Admin";
   if (pathname.endsWith("/fiscal")) return "Facturación";
   if (pathname.endsWith("/sales")) return "Ventas";
   if (pathname.endsWith("/orders")) return businessKind === "SERVICE" ? "Reservas" : "Pedidos";
@@ -87,6 +88,7 @@ function sectionLabel(pathname: string, businessKind: "STORE" | "SERVICE") {
   if (pathname.endsWith("/customers")) return "Clientes";
   if (pathname.endsWith("/suppliers")) return "Proveedores";
   if (pathname.endsWith("/expenses")) return "Gastos";
+  if (pathname.endsWith("/lists")) return "Listas";
   if (pathname.endsWith("/team")) return "Equipo";
   if (pathname.startsWith("/businesses/")) return "Negocio";
   return "Holos";

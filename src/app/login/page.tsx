@@ -51,6 +51,7 @@ export function AuthPage({ title, submitLabel, error, onSubmit, footerHref, foot
             <label>Email<input name="email" type="email" required maxLength={320} autoComplete="email" /></label>
             <PasswordField label="Contraseña" name="password" required minLength={12} maxLength={128} autoComplete={register ? "new-password" : "current-password"} />
           </>}
+          {register && <label className="auth-check"><input name="accept" type="checkbox" required /><span>Acepto los <a href="/terminos" target="_blank" rel="noreferrer">términos</a> y la <a href="/privacidad" target="_blank" rel="noreferrer">privacidad</a>.</span></label>}
           {notice && <p className="form-success" role="status">{notice}</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="auth-submit" type="submit">{submitLabel}</button>

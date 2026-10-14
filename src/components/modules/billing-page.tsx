@@ -90,7 +90,7 @@ export function BillingPage({ ownerBlocked, paymentState }: { ownerBlocked: bool
           <span>{billing.lastBackupAt ? `Último respaldo automático: ${new Date(billing.lastBackupAt).toLocaleString("es-AR")}` : "Todavía no hubo un respaldo automático. En producción se guarda uno por día."}</span>
         </div>
         <form onSubmit={pay}>
-          <button className="auth-submit" type="submit" disabled={paying || !billing.checkoutAvailable}>{paying ? "Abriendo Mercado Pago..." : `Pagar ${billing.periodDays} días`}</button>
+          <button className="auth-submit" type="submit" disabled={paying || !billing.checkoutAvailable}>{paying ? "Abriendo Mercado Pago..." : "Activar cobro automático"}</button>
         </form>
         {!billing.checkoutAvailable && <p className="module-description">El cobro con Mercado Pago todavía no está habilitado en este servidor.</p>}
       </article>

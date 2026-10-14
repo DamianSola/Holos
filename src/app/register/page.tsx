@@ -15,7 +15,7 @@ export default function RegisterPage() {
     setError("");
     const form = new FormData(event.currentTarget);
     const image = String(form.get("image") ?? "");
-    const response = await fetch("/api/v1/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), email: form.get("email"), password: form.get("password"), ...(image ? { image } : {}) }) });
+    const response = await fetch("/api/v1/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), email: form.get("email"), password: form.get("password"), acceptedTerms: form.get("accept") === "on", ...(image ? { image } : {}) }) });
     if (!response.ok) {
       const data = await response.json().catch(() => null) as { code?: string } | null;
       setError(data?.code === "DATABASE_UNAVAILABLE" ? "La base de datos no está disponible. Configurá PostgreSQL e intentá nuevamente." : "No pudimos crear la cuenta. Revisá los datos e intentá nuevamente.");

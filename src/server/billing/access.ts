@@ -3,13 +3,15 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/server/auth/session";
 import { isEntitled, trialEndsAtFrom } from "@/server/billing/plan";
+import { getPlatformSettings } from "@/server/billing/settings";
 
 export async function ensureSubscription(userId: string) {
   const existing = await prisma.subscription.findUnique({ where: { userId } });
   if (existing) return existing;
   try {
+    const settings = await getPlatformSettings();
     return await prisma.subscription.create({
-      data: { userId, status: "TRIALING", trialEndsAt: trialEndsAtFrom() },
+      data: { userId, status: "TRIALING", trialEndsAt: trialEndsAtFrom(new Date(), settings.trialDays) },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

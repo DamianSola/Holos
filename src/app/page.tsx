@@ -5,7 +5,7 @@ import { BusinessPage } from "@/components/modules/business-page";
 import { workspaceIsOpen } from "@/server/billing/access";
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/lib/db";
-import { monthlyAmountArs } from "@/server/billing/plan";
+import { getPlatformSettings } from "@/server/billing/settings";
 import { getPortfolioDashboard } from "@/server/services/dashboard";
 import { getBusinessDirectory } from "@/server/services/directory";
 import { redirect } from "next/navigation";
@@ -23,7 +23,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const user = await getSessionUser();
-  if (!user) return <MarketingHome proof={await publicProof()} monthlyArs={monthlyAmountArs()} />;
+  if (!user) {
+    const settings = await getPlatformSettings();
+    return <MarketingHome proof={await publicProof()} monthlyArs={settings.monthlyAmountArs} trialDays={settings.trialDays} />;
+  }
   if (!(await workspaceIsOpen(user))) redirect("/billing");
   const [portfolio, directory] = await Promise.all([
     getPortfolioDashboard(user.id),

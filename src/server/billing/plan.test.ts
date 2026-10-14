@@ -13,7 +13,11 @@ describe("Holos plan entitlement", () => {
     expect(isEntitled({ status: "ACTIVE", trialEndsAt: now, currentPeriodEnd: extendPeriod(null, now) }, now)).toBe(true);
     expect(isEntitled({ status: "ACTIVE", trialEndsAt: now, currentPeriodEnd: now }, now)).toBe(false);
     expect(isEntitled({ status: "ACTIVE", trialEndsAt: now, currentPeriodEnd: null }, now)).toBe(false);
-    expect(isEntitled({ status: "CANCELED", trialEndsAt: trialEndsAtFrom(now), currentPeriodEnd: extendPeriod(null, now) }, now)).toBe(false);
+    expect(isEntitled({ status: "CANCELED", trialEndsAt: now, currentPeriodEnd: extendPeriod(null, now) }, now)).toBe(true);
+    expect(isEntitled({ status: "CANCELED", trialEndsAt: now, currentPeriodEnd: now }, now)).toBe(false);
+    expect(isEntitled({ status: "CANCELED", trialEndsAt: trialEndsAtFrom(now), currentPeriodEnd: null }, now)).toBe(true);
+    expect(isEntitled({ status: "PAST_DUE", trialEndsAt: now, currentPeriodEnd: extendPeriod(null, now) }, now)).toBe(true);
+    expect(isEntitled({ status: "PAST_DUE", trialEndsAt: now, currentPeriodEnd: now }, now)).toBe(false);
   });
 
   it("uses the configured monthly price", () => {

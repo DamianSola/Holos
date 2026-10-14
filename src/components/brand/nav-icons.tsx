@@ -15,6 +15,7 @@ export type NavIconName =
   | "team"
   | "plan"
   | "profile"
+  | "admin"
   | "store";
 
 const glyphs: Record<NavIconName, ReactNode> = {
@@ -109,6 +110,12 @@ const glyphs: Record<NavIconName, ReactNode> = {
       <circle cx="12" cy="12" r="8" />
       <circle cx="12" cy="10" r="2.2" />
       <path d="M8 16.8c.8-1.6 2.2-2.4 4-2.4s3.2.8 4 2.4" />
+    </>
+  ),
+  admin: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 4.2v2.1M12 17.7v2.1M4.2 12h2.1M17.7 12h2.1M6.5 6.5l1.5 1.5M16 16l1.5 1.5M17.5 6.5 16 8M8 16l-1.5 1.5" />
     </>
   ),
   store: (

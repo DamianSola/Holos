@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { ensureSubscription } from "@/server/billing/access";
 import { checkoutConfigured } from "@/server/billing/mercadopago";
-import { HOLOS_PLAN, isEntitled, monthlyAmountArs } from "@/server/billing/plan";
+import { isEntitled } from "@/server/billing/plan";
+import { getPlatformSettings } from "@/server/billing/settings";
 import { getSessionUser } from "@/server/auth/session";
 import { errorResponse, unexpectedError } from "@/server/http";
 
@@ -10,7 +11,7 @@ export async function GET() {
   if (!user) return errorResponse(401, "UNAUTHORIZED", "Sesión requerida.");
 
   try {
-    const subscription = await ensureSubscription(user.id);
+    const [subscription, settings] = await Promise.all([ensureSubscription(user.id), getPlatformSettings()]);
     const [businesses, lastBackup] = await Promise.all([
       prisma.membership.findMany({
         where: { userId: user.id, role: "OWNER", deletedAt: null, business: { deletedAt: null } },
@@ -20,15 +21,15 @@ export async function GET() {
     ]);
 
     return Response.json({
-      planName: HOLOS_PLAN.name,
-      amountArs: monthlyAmountArs(),
-      trialDays: HOLOS_PLAN.trialDays,
-      periodDays: HOLOS_PLAN.periodDays,
+      planName: settings.planName,
+      amountArs: settings.monthlyAmountArs,
+      trialDays: settings.trialDays,
+      periodDays: settings.periodDays,
       status: subscription.status,
       trialEndsAt: subscription.trialEndsAt,
       currentPeriodEnd: subscription.currentPeriodEnd,
       entitled: isEntitled(subscription),
-      checkoutAvailable: checkoutConfigured(),
+      checkoutAvailable: await checkoutConfigured(),
       lastBackupAt: lastBackup?.finishedAt ?? null,
       businesses: businesses.map((membership) => ({ id: membership.business.id, name: membership.business.name })),
     });

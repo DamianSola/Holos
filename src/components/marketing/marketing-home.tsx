@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { HolosLogo } from "@/components/brand/holos-logo";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { HOLOS_PLAN } from "@/server/billing/plan";
-
 const points = ["Ventas", "Stock", "Clientes", "Pedidos", "Reservas", "Gastos"];
 
-export function MarketingHome({ proof, monthlyArs }: { proof: { users: number; businesses: number } | null; monthlyArs: number }) {
+export function MarketingHome({ proof, monthlyArs, trialDays }: { proof: { users: number; businesses: number } | null; monthlyArs: number; trialDays: number }) {
   const price = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(monthlyArs);
   return (
     <div className="marketing">
@@ -35,7 +33,8 @@ export function MarketingHome({ proof, monthlyArs }: { proof: { users: number; b
               <Link className="marketing-cta marketing-cta-primary" href="/register">Empezar gratis</Link>
               <Link className="marketing-cta marketing-cta-ghost" href="/login">Ingresar</Link>
             </div>
-            <p className="marketing-offer">{HOLOS_PLAN.trialDays} días gratis. Después {price} por mes.</p>
+            <p className="marketing-offer">{trialDays} días gratis. Después {price} por mes. El cobro del plan se renueva solo.</p>
+            <p className="marketing-offer"><a href="/terminos">Términos</a> · <a href="/privacidad">Privacidad</a></p>
             <ul className="marketing-points">
               {points.map((point) => <li key={point}>{point}</li>)}
             </ul>

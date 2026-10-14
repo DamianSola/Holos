@@ -1,13 +1,14 @@
-import { applyMercadoPagoNotification } from "@/server/billing/mercadopago";
+import { applyAuthorizedPayment, applyMercadoPagoNotification, applyPreapprovalNotification } from "@/server/billing/mercadopago";
 
 async function handle(request: Request) {
   const url = new URL(request.url);
   const body = request.method === "POST" ? await request.json().catch(() => null) as { type?: string; topic?: string; data?: { id?: string | number }; id?: string | number } | null : null;
   const topic = body?.type ?? body?.topic ?? url.searchParams.get("topic") ?? url.searchParams.get("type") ?? "";
   const id = body?.data?.id ?? body?.id ?? url.searchParams.get("id");
-  if ((topic === "payment" || topic.startsWith("payment.")) && id) {
-    await applyMercadoPagoNotification(String(id));
-  }
+  if (!id) return Response.json({ ok: true });
+  if (topic === "payment" || topic.startsWith("payment.")) await applyMercadoPagoNotification(String(id));
+  if (topic === "preapproval" || topic === "subscription_preapproval") await applyPreapprovalNotification(String(id));
+  if (topic === "subscription_authorized_payment") await applyAuthorizedPayment(String(id));
   return Response.json({ ok: true });
 }
 
