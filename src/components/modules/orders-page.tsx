@@ -5,6 +5,7 @@ import { PlusIcon } from "@/components/brand/nav-icons";
 import { CustomerPicker } from "@/components/forms/customer-picker";
 import { PaymentForm } from "@/components/forms/payment-form";
 import { FormModal } from "@/components/forms/form-modal";
+import { DownloadList } from "@/components/forms/download-list";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
 import { applySaleDiscount, type SaleDiscount } from "@/lib/sale-discount";
@@ -135,6 +136,15 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
   const byStatus = useMemo(() => orders.filter((order) => order.status === filter), [orders, filter]);
   const visible = useMemo(() => byStatus.filter((order) => matchesQuery(query, order.title, order.customer.name, order.notes, order.product?.name, order.kind === "PRODUCT" ? rowPhrase(order) : statusText(order), ...shownLines(order).map((line) => line.productName))), [byStatus, query]);
   const openOrders = orders.filter((order) => order.status === "SCHEDULED");
+  const orderRows = visible.map((order) => {
+    const lines = shownLines(order);
+    const detail = lines.length ? lines.map((line) => `${line.quantity} ${line.productName}`).join(", ") : order.title;
+    const state = order.kind === "PRODUCT"
+      ? orderRowPhrase(order.status, lines.filter((line) => lineIsDelivered(order, line)).length, lines.length, chargeOf(order), paidOf(order), formatMoney)
+      : `${statusText(order)}${order.amountMinor === null ? "" : ` · ${formatMoney(order.amountMinor)}`}`;
+    return [order.customer.name, formatDate(order.scheduledFor), detail, state];
+  });
+  const orderTitle = filter === "SCHEDULED" ? "Pedidos abiertos" : filter === "DONE" ? "Pedidos cerrados" : "Pedidos cancelados";
   const dueMinor = openOrders.reduce((total, order) => order.kind === "PRODUCT" ? total + Math.max(0, chargeOf(order) - paidOf(order)) : total, 0);
   const draftTotal = lines.reduce((total, line) => total + line.unitPriceMinor * line.quantity, 0);
   const priced = useMemo(() => applySaleDiscount(draftTotal, previewDiscount(discountKind, discountPercent, discountPrice, draftTotal)), [draftTotal, discountKind, discountPercent, discountPrice]);
@@ -319,7 +329,10 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
         <div className="summary-card"><span>Abiertos</span><strong>{openOrders.length}</strong></div>
         <div className="summary-card"><span>Por cobrar</span><strong>{formatMoney(dueMinor)}</strong></div>
       </div>
-      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />Nuevo pedido</button></div>
+      <div className="customer-actions">
+        <button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />Nuevo pedido</button>
+        <DownloadList disabled={loading} choices={[{ label: "Pedidos", title: orderTitle, checkbox: true, columns: [{ label: "Cliente", weight: 1.6 }, { label: "Para el", weight: 1.3 }, { label: "Pedido", weight: 2.4 }, { label: "Estado", weight: 2.2 }], rows: orderRows }]} />
+      </div>
       {formOpen && <FormModal title={editingId ? "Editar pedido" : "Nuevo pedido"} onClose={() => { setFormOpen(false); resetForm(); }}>
         <form className="customer-form" onSubmit={(event) => void save(event)}>
           <div className="customer-form-grid">

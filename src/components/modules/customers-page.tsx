@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
+import { DownloadList } from "@/components/forms/download-list";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { WhatsappLink } from "@/components/whatsapp-link";
 
@@ -97,7 +98,10 @@ export function CustomersPage({ businessId }: { businessId: string }) {
 
   return <ModuleLayout eyebrow="Relación" title="Clientes">
     <div className="customer-summary"><div className="summary-card"><span>Total</span><strong>{stats.total}</strong></div><div className="summary-card"><span>Con email</span><strong>{stats.withEmail}</strong></div><div className="summary-card"><span>Con teléfono</span><strong>{stats.withPhone}</strong></div></div>
-    <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />Nuevo cliente</button></div>
+    <div className="customer-actions">
+      <button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />Nuevo cliente</button>
+      <DownloadList disabled={loading} choices={[{ label: "Clientes", title: "Clientes", columns: [{ label: "Nombre", weight: 2 }, { label: "Teléfono", weight: 1.4 }, { label: "Email", weight: 2 }], rows: visible.map((customer) => [customer.name, customer.phone ?? "-", customer.email ?? "-"]) }]} />
+    </div>
     {formOpen && <FormModal title={editingId ? "Editar cliente" : "Nuevo cliente"} onClose={resetForm}><form className="customer-form" onSubmit={saveCustomer}><div className="customer-form-grid"><label>Nombre<input value={form.name} onChange={(event) => updateForm("name", event.target.value)} required maxLength={160} /></label><label>Email<input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="cliente@ejemplo.com" /></label><label>Teléfono<input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} placeholder="+54 ..." maxLength={40} /></label><label className="customer-form-wide">Notas<textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} rows={3} maxLength={1000} /></label></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : editingId ? "Guardar cliente" : "Agregar cliente"}</button></form></FormModal>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {items.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder="Nombre, teléfono o email" />}

@@ -29,6 +29,7 @@ export function Sidebar({ businessId, businessKind = "STORE", businessName = "",
         { label: "Clientes", href: `/businesses/${businessId}/customers`, icon: "customer" as const },
         { label: "Proveedores", href: `/businesses/${businessId}/suppliers`, icon: "supplier" as const },
         { label: "Gastos", href: `/businesses/${businessId}/expenses`, icon: "expense" as const },
+        { label: "Listas", href: `/businesses/${businessId}/lists`, icon: "list" as const },
       ]
     : [];
   const admin: NavItem[] = businessId

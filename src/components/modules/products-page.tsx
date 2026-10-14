@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
+import { DownloadList } from "@/components/forms/download-list";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
@@ -96,7 +97,19 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
 
   return (
     <ModuleLayout eyebrow="Operación" title={stockMode ? "Stock" : "Productos"}>
-      <div className="customer-actions"><button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button></div>
+      <div className="customer-actions">
+        <button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button>
+        <DownloadList
+          disabled={loading}
+          choices={stockMode ? [
+            { label: "Con stock", title: "Stock", checkbox: true, columns: [{ label: "Ítem", weight: 3 }, { label: "Stock", weight: 1 }, { label: "Mínimo", weight: 1 }], rows: visible.map((product) => [product.name, String(product.stock), String(product.minimumStock)]) },
+            { label: "Sin cantidades", title: "Stock sin cantidades", columns: [{ label: "Ítem", weight: 3 }, { label: "Tipo", weight: 1.2 }], rows: visible.map((product) => [product.name, kindLabel(product.catalogKind)]) },
+          ] : [
+            { label: "Con stock", title: "Productos", checkbox: true, columns: [{ label: "Producto", weight: 3 }, { label: "Precio", weight: 1.2 }, { label: "Stock", weight: 1 }], rows: visible.map((product) => [product.name, formatMoney(product.priceMinor), String(product.stock)]) },
+            { label: "Sin stock", title: "Productos sin stock", columns: [{ label: "Producto", weight: 3 }, { label: "Precio", weight: 1.2 }], rows: visible.map((product) => [product.name, formatMoney(product.priceMinor)]) },
+          ]}
+        />
+      </div>
       {error && !formOpen && !stockPrompt && <p className="form-error" role="alert">{error}</p>}
       {listed.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder={stockMode ? "Nombre o tipo" : "Nombre o tipo"} />}
       {loading ? <div className="module-state">Cargando...</div> : listed.length === 0 ? <div className="module-state">{stockMode ? "Todavía no hay insumos ni herramientas." : "Todavía no hay productos."}</div> : visible.length ? (

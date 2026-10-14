@@ -81,6 +81,11 @@ enum TaskStatus {
   ARCHIVED
 }
 
+enum WorkListStatus {
+  OPEN
+  DONE
+}
+
 enum OrderKind {
   PRODUCT
   SERVICE
@@ -125,6 +130,8 @@ model User {
   expensesCreated Expense[]      @relation("ExpenseCreator")
   tasksCreated    Task[]         @relation("TaskCreator")
   tasksAssigned   Task[]         @relation("TaskAssignee")
+  workListsCreated  WorkList[]   @relation("WorkListCreator")
+  workListsAssigned WorkList[]   @relation("WorkListAssignee")
   notifications   Notification[]
   activities      ActivityEvent[]
   subscription    Subscription?
@@ -198,6 +205,7 @@ model Business {
   suppliers    Supplier[]
   expenses     Expense[]
   tasks        Task[]
+  workLists    WorkList[]
   notifications Notification[]
   activities   ActivityEvent[]
   fiscalProfile FiscalProfile?
@@ -433,6 +441,40 @@ model TaskItem {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId, position])
+}
+
+model WorkList {
+  id          String         @id @default(uuid()) @db.Uuid
+  businessId  String         @db.Uuid
+  createdById String         @db.Uuid
+  assigneeId  String?        @db.Uuid
+  title       String
+  status      WorkListStatus @default(OPEN)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  completedAt DateTime?
+
+  business  Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdBy User           @relation("WorkListCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignee  User?          @relation("WorkListAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  items     WorkListItem[]
+
+  @@index([businessId, status, createdAt])
+  @@index([createdById])
+  @@index([assigneeId])
+}
+
+model WorkListItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  listId    String   @db.Uuid
+  text      String
+  quantity  Int?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  list WorkList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId, position])
 }
 
 model Notification {

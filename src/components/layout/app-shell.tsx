@@ -32,7 +32,7 @@ export function AppShell({ children, businessId, userName, businessKind = "STORE
   }, [pathname]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-business-name={businessName}>
       <Sidebar
         businessId={businessId}
         businessKind={businessKind}

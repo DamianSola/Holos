@@ -10,6 +10,7 @@ export type NavIconName =
   | "customer"
   | "supplier"
   | "expense"
+  | "list"
   | "invoice"
   | "team"
   | "plan"
@@ -73,6 +74,14 @@ const glyphs: Record<NavIconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="8" />
       <path d="M8.5 12h7" />
+    </>
+  ),
+  list: (
+    <>
+      <rect x="4" y="5" width="3.2" height="3.2" rx="0.4" />
+      <rect x="4" y="10.4" width="3.2" height="3.2" rx="0.4" />
+      <rect x="4" y="15.8" width="3.2" height="3.2" rx="0.4" />
+      <path d="M10 6.6h9.2M10 12h9.2M10 17.4h9.2" />
     </>
   ),
   invoice: (

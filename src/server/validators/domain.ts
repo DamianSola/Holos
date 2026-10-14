@@ -272,6 +272,24 @@ export const taskUpdateSchema = z.object({
   if (value.addItem !== undefined && editingTask) context.addIssue({ code: "custom", message: "El ítem nuevo se envía solo." });
 });
 
+const workListItemSchema = z.object({
+  text: z.string().trim().min(1).max(200),
+  quantity: z.number().int().positive().max(9999).nullable().optional(),
+});
+
+export const workListSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  assigneeId: z.string().uuid().nullable().optional(),
+  items: z.array(workListItemSchema).min(1).max(200),
+}).strict();
+
+export const workListPatchSchema = z.object({
+  title: z.string().trim().min(1).max(160).optional(),
+  assigneeId: z.string().uuid().nullable().optional(),
+  status: z.enum(["OPEN", "DONE"]).optional(),
+  items: z.array(workListItemSchema).min(1).max(200).optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, { message: "Debe enviar al menos un cambio." });
+
 export const fiscalProfileSchema = z.object({
   legalName: z.string().trim().min(1).max(160),
   cuit: z.string().trim().min(11).max(20),

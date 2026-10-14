@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "reac
 import { PlusIcon } from "@/components/brand/nav-icons";
 import { CustomerPicker, type CustomerChoice } from "@/components/forms/customer-picker";
 import { PaymentForm } from "@/components/forms/payment-form";
+import { DownloadList } from "@/components/forms/download-list";
 import { ModuleLayout } from "@/components/modules/customers-page";
 import { SendReceiptWhatsapp } from "@/components/whatsapp-link";
 import { collectionLabel, paidMinor, paymentFits, remainingMinor } from "@/lib/reservation-money";
@@ -277,8 +278,14 @@ export function ServiceReservationsPage({ businessId, businessName, openOrderId 
   }
 
   const rangeLabel = view === "agenda" ? weekLabel(weekStart) : monthLabel(cursor);
-  const rangeCount = (view === "agenda" ? weekDays : monthDays.filter((day) => day.getMonth() === cursor.getMonth()))
-    .reduce((total, day) => total + (byDay.get(dateKey(day))?.length ?? 0), 0);
+  const rangeDays = view === "agenda" ? weekDays : monthDays.filter((day) => day.getMonth() === cursor.getMonth());
+  const rangeCount = rangeDays.reduce((total, day) => total + (byDay.get(dateKey(day))?.length ?? 0), 0);
+  const rangeRows = rangeDays.flatMap((day) => (byDay.get(dateKey(day)) ?? []).map((order) => {
+    const budget = order.amountMinor ?? 0;
+    const paid = paidMinor(order.payments);
+    const money = budget > 0 ? `${collectionLabel(budget, paid)} · ${formatMoney(paid)} de ${formatMoney(budget)}` : collectionLabel(budget, paid);
+    return [day.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" }), order.customer.name, order.title.trim() || "Reserva", money];
+  }));
 
   return (
     <ModuleLayout eyebrow="Operación" title="Reservas">
@@ -293,6 +300,7 @@ export function ServiceReservationsPage({ businessId, businessName, openOrderId 
           <button className="secondary-button" type="button" onClick={() => setCursor((current) => shiftCursor(current, view, 1))}>Siguiente</button>
         </div>
         <button className="secondary-button" type="button" onClick={() => setCupoOpen(true)}>Cupo</button>
+        <DownloadList disabled={loading} choices={[{ label: "Reservas", title: `Reservas · ${rangeLabel}`, checkbox: true, columns: [{ label: "Cuándo", weight: 1.4 }, { label: "Cliente", weight: 1.8 }, { label: "Reserva", weight: 2 }, { label: "Cobro", weight: 1.8 }], rows: rangeRows }]} />
         <button className="auth-submit" type="button" onClick={() => (schedule.mode === "TURN" && slotsOf(schedule).length === 0 ? setCupoOpen(true) : openCreate(dateKey(new Date())))}><PlusIcon />Nueva reserva</button>
       </div>
       <div className="reservation-caption">
