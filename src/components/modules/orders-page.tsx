@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
+import { IconAction } from "@/components/forms/icon-action";
 import { CustomerPicker } from "@/components/forms/customer-picker";
 import { PaymentForm } from "@/components/forms/payment-form";
 import { FormModal } from "@/components/forms/form-modal";
@@ -375,7 +376,7 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
                   <label>Cantidad
                     <input type="number" min="1" value={pickQty} onChange={(event) => setPickQty(Number(event.target.value))} />
                   </label>
-                  <button className="secondary-button" type="button" onClick={addLine} disabled={!pickId || pickQty < 1}>Agregar</button>
+                  <IconAction label="Agregar" icon="add" onClick={addLine} disabled={!pickId || pickQty < 1} />
                 </div>
                 {lines.length ? (
                   <div className="cart-list">
@@ -384,7 +385,7 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
                         <span><strong>{line.productName}</strong><small>{formatMoney(line.unitPriceMinor)} c/u</small></span>
                         <input aria-label={`Cantidad de ${line.productName}`} type="number" min="1" value={line.quantity} onChange={(event) => changeLineQuantity(line.productId, Number(event.target.value))} />
                         <strong>{formatMoney(line.unitPriceMinor * line.quantity)}</strong>
-                        <button className="text-button" type="button" onClick={() => setLines((current) => current.filter((item) => item.productId !== line.productId))} disabled={lines.length < 2}>Quitar</button>
+                        <IconAction label="Quitar" icon="remove" onClick={() => setLines((current) => current.filter((item) => item.productId !== line.productId))} disabled={lines.length < 2} />
                       </div>
                     ))}
                     <div className="sale-form">
@@ -441,7 +442,7 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
               <article className="record-row orders" key={order.id}>
                 <strong className="record-who">{order.customer.name}</strong>
                 <span className="record-phrase">{order.kind === "PRODUCT" ? orderRowPhrase(order.status, delivered, linesOnCard.length, chargeOf(order), paidOf(order), formatMoney) : `${statusText(order)}${order.amountMinor === null ? "" : ` · ${formatMoney(order.amountMinor)}`}`}</span>
-                <button className="secondary-button record-view" type="button" onClick={() => { setError(""); setAskCancel(false); setOpenOrder(order); }}>Ver</button>
+                <IconAction className="record-view" label="Ver" icon="view" onClick={() => { setError(""); setAskCancel(false); setOpenOrder(order); }} />
               </article>
             );
           })}
@@ -454,9 +455,9 @@ export function OrdersPage({ businessId, businessKind = "STORE", openOrderId }: 
             {viewing.notes && <p>{viewing.notes}</p>}
             {viewing.kind === "PRODUCT" ? <ProductDetail businessId={businessId} order={viewing} saving={saving} error={error} askCancel={askCancel} paymentAmount={paymentAmount} paymentMethod={detailMethod} onPaymentAmount={setPaymentAmount} onPaymentMethod={setDetailMethod} onToggle={(itemId, delivered) => void patchOrder(viewing.id, { itemId, delivered })} onDeliverAll={() => void patchOrder(viewing.id, { deliverAll: true })} onPay={(event) => void addPayment(event)} onEdit={() => openEdit(viewing)} onAskCancel={setAskCancel} onCancel={(refund) => { setAskCancel(false); void patchOrder(viewing.id, { status: "CANCELLED", refund }); }} onReopen={() => void patchOrder(viewing.id, { status: "SCHEDULED" })} /> : (
               <div className="customer-actions">
-                {viewing.status === "SCHEDULED" && <button className="secondary-button" type="button" onClick={() => void patchOrder(viewing.id, { status: "DONE" })}>Marcar realizado</button>}
-                {viewing.status === "SCHEDULED" && <button className="text-button" type="button" onClick={() => void patchOrder(viewing.id, { status: "CANCELLED" })}>Cancelar</button>}
-                {viewing.status !== "SCHEDULED" && <button className="text-button" type="button" onClick={() => void patchOrder(viewing.id, { status: "SCHEDULED" })}>Reabrir</button>}
+                {viewing.status === "SCHEDULED" && <IconAction label="Marcar realizado" icon="check" onClick={() => void patchOrder(viewing.id, { status: "DONE" })} />}
+                {viewing.status === "SCHEDULED" && <IconAction label="Cancelar" icon="cancel" onClick={() => void patchOrder(viewing.id, { status: "CANCELLED" })} />}
+                {viewing.status !== "SCHEDULED" && <IconAction label="Reabrir" icon="reopen" onClick={() => void patchOrder(viewing.id, { status: "SCHEDULED" })} />}
               </div>
             )}
           </div>
@@ -531,9 +532,9 @@ function ProductDetail({ businessId, order, saving, error, askCancel, paymentAmo
       ) : (
         <div className="customer-actions">
           {order.status !== "CANCELLED" && delivered < lines.length && <button className="secondary-button" type="button" disabled={saving} onClick={onDeliverAll}>Entregar todo</button>}
-          {editable && <button className="secondary-button" type="button" onClick={onEdit}>Editar</button>}
-          {order.status !== "CANCELLED" && <button className="text-button" type="button" onClick={() => onAskCancel(true)}>Cancelar</button>}
-          {order.status === "CANCELLED" && <button className="text-button" type="button" onClick={onReopen}>Reabrir</button>}
+          {editable && <IconAction label="Editar" icon="edit" onClick={onEdit} />}
+          {order.status !== "CANCELLED" && <IconAction label="Cancelar" icon="cancel" onClick={() => onAskCancel(true)} />}
+          {order.status === "CANCELLED" && <IconAction label="Reabrir" icon="reopen" onClick={onReopen} />}
         </div>
       )}
     </>

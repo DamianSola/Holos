@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { IconAction } from "@/components/forms/icon-action";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { FormModal } from "@/components/forms/form-modal";
 
@@ -177,7 +178,7 @@ export function TeamPage({ businessId, initialMemberships, initialInvitations, i
                     <option value="OWNER">Dueño</option>
                     <option value="EMPLOYEE">Empleado</option>
                   </select>
-                  <button className="text-button" type="button" onClick={() => setPendingRemoveId(membership.id)}>Quitar</button>
+                  <IconAction label="Quitar" icon="remove" onClick={() => setPendingRemoveId(membership.id)} />
                 </div>
               )}
             </article>

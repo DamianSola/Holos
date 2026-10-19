@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { IconAction } from "@/components/forms/icon-action";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
@@ -210,7 +211,7 @@ export function AdminPage() {
                 <button className="secondary-button" type="button" onClick={() => setPending({ user, action: "extend" })}>Dar un período</button>
                 {user.deletedAt ? <button className="secondary-button" type="button" onClick={() => setPending({ user, action: "restore" })}>Restaurar</button> : user.platformAdmin ? null : <>
                   <button className="secondary-button" type="button" onClick={() => setPending({ user, action: user.status === "SUSPENDED" ? "activate" : "suspend" })}>{user.status === "SUSPENDED" ? "Reactivar" : "Suspender"}</button>
-                  <button className="text-button" type="button" onClick={() => setPending({ user, action: "delete" })}>Eliminar</button>
+                  <IconAction label="Eliminar" icon="delete" onClick={() => setPending({ user, action: "delete" })} />
                 </>}
               </span>
             </article>

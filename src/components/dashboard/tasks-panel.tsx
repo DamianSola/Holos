@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
+import { IconAction } from "@/components/forms/icon-action";
 import { FormModal } from "@/components/forms/form-modal";
 
 type Member = { id: string; name: string | null; email: string };
@@ -181,12 +182,12 @@ export function TasksPanel({ businessId, members }: { businessId: string; member
                 {task.status === "OPEN" && (
                   <form className="task-item-add" onSubmit={(event) => void addItem(task.id, event)}>
                     <input aria-label={`Nuevo ítem de ${task.title}`} value={itemDrafts[task.id] ?? ""} onChange={(event) => setItemDrafts((current) => ({ ...current, [task.id]: event.target.value }))} placeholder="Agregar un ítem" maxLength={160} />
-                    <button className="secondary-button" type="submit">Agregar</button>
+                    <IconAction label="Agregar" icon="add" type="submit" />
                   </form>
                 )}
                 {items.length === 0 && (
                   <div className="task-card-actions">
-                    <button className="secondary-button" type="button" onClick={() => void updateTask(task.id, task.status === "DONE" ? "OPEN" : "DONE")}>{task.status === "DONE" ? "Reabrir" : "Completar"}</button>
+                    <IconAction label={task.status === "DONE" ? "Reabrir" : "Completar"} icon={task.status === "DONE" ? "reopen" : "check"} onClick={() => void updateTask(task.id, task.status === "DONE" ? "OPEN" : "DONE")} />
                   </div>
                 )}
               </article>
@@ -207,7 +208,7 @@ export function TasksPanel({ businessId, members }: { businessId: string; member
               <legend>Ítems</legend>
               <div className="task-item-add">
                 <input aria-label="Ítem" value={form.itemText} onChange={(event) => setForm((current) => ({ ...current, itemText: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addDraftItem(); } }} placeholder="Ej. Llamar al proveedor" maxLength={160} />
-                <button className="secondary-button" type="button" onClick={addDraftItem}>Agregar</button>
+                <IconAction label="Agregar" icon="add" onClick={addDraftItem} />
               </div>
               {draftItems.length > 0 && (
                 <ul className="task-draft-list">
@@ -215,7 +216,7 @@ export function TasksPanel({ businessId, members }: { businessId: string; member
                     <li key={`${text}-${index}`}>
                       <span className="task-check-box" aria-hidden="true" />
                       <span>{text}</span>
-                      <button className="text-button" type="button" onClick={() => setDraftItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Quitar</button>
+                      <IconAction label="Quitar" icon="remove" onClick={() => setDraftItems((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
                     </li>
                   ))}
                 </ul>

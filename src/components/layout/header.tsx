@@ -35,7 +35,9 @@ export function Header({ onMenuClick, userName, businessId, businessKind = "STOR
     <header className="topbar">
       <div className="topbar-leading">
         <button className="menu-button" type="button" aria-label="Abrir navegación" onClick={onMenuClick}>
-          Menú
+          <svg className="icon-glyph" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
         </button>
         <Link className="topbar-mark" href="/" aria-label="Ir al tablero">
           <HolosLogo variant="mark" />

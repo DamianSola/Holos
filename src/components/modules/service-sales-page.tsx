@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { IconAction, IconLink } from "@/components/forms/icon-action";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { DateRangeFilter, datedListPath } from "@/components/forms/date-range-filter";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
@@ -245,10 +246,10 @@ export function ServiceSalesPage({ businessId, businessName }: { businessId: str
                 <div className="sale-row-total">
                   <strong>{formatMoney(sale.totalMinor)}</strong>
                   {sale.subtotalMinor > sale.totalMinor && <small>Presupuesto {formatMoney(sale.subtotalMinor)}</small>}
-                  {sale.status === "CONFIRMED" && <a className="text-button" href={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket`} target="_blank" rel="noreferrer">Imprimir</a>}
+                  {sale.status === "CONFIRMED" && <IconLink label="Imprimir" icon="print" href={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket`} target="_blank" rel="noreferrer" />}
                   {sale.status === "CONFIRMED" && <SendReceiptWhatsapp phone={sale.customer?.phone} text={receiptText({ businessName, customerName: sale.customer?.name ?? "cliente", invoiceNumber: sale.invoice?.number, when: new Date(sale.serviceDate ?? Date.now()), lines: [sale.description, sale.place].filter((line): line is string => Boolean(line)), totalMinor: sale.totalMinor, cae: sale.invoice?.arcaStatus === "AUTHORIZED" ? sale.invoice.cae : null })} pdfUrl={`/api/v1/businesses/${businessId}/sales/${sale.id}/ticket?format=pdf`} fileName={`${sale.invoice?.number ?? "comprobante"}.pdf`} />}
                   {sale.invoice && <small>{sale.invoice.number}</small>}
-                  {sale.invoice?.arcaStatus !== "AUTHORIZED" && <button className="text-button" type="button" onClick={() => setPendingDeleteId(sale.id)}>Eliminar</button>}
+                  {sale.invoice?.arcaStatus !== "AUTHORIZED" && <IconAction label="Eliminar" icon="delete" onClick={() => setPendingDeleteId(sale.id)} />}
                 </div>
               </article>
             ))}

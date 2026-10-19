@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { ActionGlyph } from "@/components/forms/icon-action";
 import { whatsappHref } from "@/lib/whatsapp";
 
 export function WhatsappLink({ phone, text }: { phone?: string | null; text?: string }) {
   if (!phone) return null;
   const href = whatsappHref(phone, text);
   if (!href) return null;
-  return <a className="secondary-button" href={href} target="_blank" rel="noreferrer" aria-label={text ? "Enviar comprobante por WhatsApp" : "Abrir WhatsApp"}>WhatsApp</a>;
+  const label = text ? "Enviar comprobante" : "WhatsApp";
+  return <a className="icon-action" href={href} target="_blank" rel="noreferrer" title={label} aria-label={label}><ActionGlyph name="whatsapp" /><span className="icon-action-name">{label}</span></a>;
 }
 
 export function SendReceiptWhatsapp({ phone, text, pdfUrl, fileName }: { phone?: string | null; text: string; pdfUrl: string; fileName: string }) {
@@ -53,7 +55,7 @@ export function SendReceiptWhatsapp({ phone, text, pdfUrl, fileName }: { phone?:
 
   return (
     <>
-      <button className="secondary-button" type="button" onClick={() => void send()} disabled={busy} aria-label="Enviar el comprobante en PDF por WhatsApp">{busy ? "Armando PDF..." : "WhatsApp"}</button>
+      <button className={`icon-action${busy ? " is-labeled" : ""}`} type="button" onClick={() => void send()} disabled={busy} title={busy ? "Armando PDF..." : "WhatsApp"} aria-label={busy ? "Armando PDF..." : "Enviar el comprobante en PDF por WhatsApp"}><ActionGlyph name="whatsapp" /><span className="icon-action-name">{busy ? "Armando PDF..." : "WhatsApp"}</span></button>
       {note ? <small role="status">{note}</small> : null}
     </>
   );

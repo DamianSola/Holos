@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
+import { IconAction } from "@/components/forms/icon-action";
 import { FormModal } from "@/components/forms/form-modal";
 import { DownloadList } from "@/components/forms/download-list";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
@@ -121,7 +122,7 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
                 <strong className="record-who">{product.name}</strong>
                 <strong className="record-money">{stockMode ? `${product.stock} un.` : formatMoney(product.priceMinor)}</strong>
                 <span className="record-meta"><span className="record-kind">{stockMode ? kindLabel(product.catalogKind) : (product.category || "—")}</span><span className={low ? "record-stock record-alert" : "record-stock"}>{stockMode ? `mín. ${product.minimumStock}` : low ? `${product.stock} un. · Bajo` : `${product.stock} un.`}</span></span>
-                <span className="record-actions"><button className="secondary-button record-view" type="button" onClick={() => setViewing(product)}>Ver</button></span>
+                <span className="record-actions"><IconAction className="record-view" label="Ver" icon="view" onClick={() => setViewing(product)} /></span>
               </article>
             );
           })}
@@ -152,7 +153,7 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
         </FormModal>
       )}
       {archiveTarget && <ConfirmModal title="Archivar" message={stockMode ? `¿Archivar ${archiveTarget.name}? Deja de aparecer en el stock.` : `¿Archivar ${archiveTarget.name}? Dejará de aparecer en ventas.`} onCancel={() => setArchiveTarget(null)} onAccept={() => void archiveProduct(archiveTarget)} />}
-      {viewing && <FormModal title={viewing.name} onClose={() => setViewing(null)}><div className="record-detail"><p>{stockMode ? kindLabel(viewing.catalogKind) : (viewing.category || "Sin tipo")}</p>{stockMode ? null : <p>Precio <strong>{formatMoney(viewing.priceMinor)}</strong></p>}<p>Stock <strong>{viewing.stock}</strong> · mínimo {viewing.minimumStock}{viewing.stock <= viewing.minimumStock ? " · Bajo" : ""}</p>{viewing.costMinor !== null && <p>Costo <strong>{formatMoney(viewing.costMinor)}</strong></p>}<p>{viewing.description || "Sin descripción"}</p><div className="customer-actions"><button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "in" }); setViewing(null); }}>{stockMode ? "Sumar" : "Ingresar stock"}</button><button className="secondary-button" type="button" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "out" }); setViewing(null); }} disabled={viewing.stock === 0}>{stockMode ? "Restar" : "Retirar stock"}</button><button className="secondary-button" type="button" onClick={() => { startEditing(viewing); setViewing(null); }}>Editar</button><button className="text-button" type="button" onClick={() => { setArchiveTarget(viewing); setViewing(null); }}>Archivar</button></div></div></FormModal>}
+      {viewing && <FormModal title={viewing.name} onClose={() => setViewing(null)}><div className="record-detail"><p>{stockMode ? kindLabel(viewing.catalogKind) : (viewing.category || "Sin tipo")}</p>{stockMode ? null : <p>Precio <strong>{formatMoney(viewing.priceMinor)}</strong></p>}<p>Stock <strong>{viewing.stock}</strong> · mínimo {viewing.minimumStock}{viewing.stock <= viewing.minimumStock ? " · Bajo" : ""}</p>{viewing.costMinor !== null && <p>Costo <strong>{formatMoney(viewing.costMinor)}</strong></p>}<p>{viewing.description || "Sin descripción"}</p><div className="customer-actions"><IconAction label={stockMode ? "Sumar" : "Ingresar stock"} icon="add" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "in" }); setViewing(null); }} /><IconAction label={stockMode ? "Restar" : "Retirar stock"} icon="remove" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "out" }); setViewing(null); }} disabled={viewing.stock === 0} /><IconAction label="Editar" icon="edit" onClick={() => { startEditing(viewing); setViewing(null); }} /><button className="text-button" type="button" onClick={() => { setArchiveTarget(viewing); setViewing(null); }}>Archivar</button></div></div></FormModal>}
       {stockPrompt && <StockAdjustModal product={stockPrompt.product} direction={stockPrompt.direction} stockMode={stockMode} error={error} onCancel={() => { setError(""); setStockPrompt(null); }} onAccept={(quantity, reason) => adjustStock(stockPrompt.product, quantity, reason)} />}
     </ModuleLayout>
   );

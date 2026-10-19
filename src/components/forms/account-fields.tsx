@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { IconAction } from "@/components/forms/icon-action";
 
 type PasswordFieldProps = {
   label: string;
@@ -74,7 +75,7 @@ export function ImagePicker({ label, name, value, onChange }: ImagePickerProps) 
         {label}
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void choose(event.target.files?.[0])} />
       </label>
-      {current && <button className="text-button" type="button" onClick={() => setImage("")}>Quitar</button>}
+      {current && <IconAction label="Quitar" icon="remove" onClick={() => setImage("")} />}
       {name && <input type="hidden" name={name} value={current} />}
       {error && <p className="form-error" role="alert">{error}</p>}
     </div>

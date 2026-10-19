@@ -2,9 +2,11 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
+import { IconAction, IconLink } from "@/components/forms/icon-action";
 import { CustomerPicker, type CustomerChoice } from "@/components/forms/customer-picker";
 import { PaymentForm } from "@/components/forms/payment-form";
 import { DownloadList } from "@/components/forms/download-list";
+import { ModalClose } from "@/components/forms/form-modal";
 import { ModuleLayout } from "@/components/modules/customers-page";
 import { SendReceiptWhatsapp } from "@/components/whatsapp-link";
 import { collectionLabel, paidMinor, paymentFits, remainingMinor } from "@/lib/reservation-money";
@@ -333,7 +335,7 @@ export function ServiceReservationsPage({ businessId, businessName, openOrderId 
                 ) : dayOrders.length ? <div className="record-scroll"><div className="record-list reservations">{dayOrders.map((order) => {
                   const budget = order.amountMinor ?? 0;
                   const paid = paidMinor(order.payments);
-                  return <article className="record-row reservations" key={order.id}><strong className="record-who">{order.customer.name}</strong><strong className="record-money">{collectionLabel(budget, paid)}{budget > 0 ? ` · ${formatMoney(paid)} de ${formatMoney(budget)}` : ""}</strong><span className="record-meta"><span className="record-note">{order.title.trim() || "—"}</span><span className="record-place">{order.place ?? "—"}</span></span><span className="record-actions"><button className="secondary-button record-view" type="button" onClick={() => openReservation(order)}>Ver</button></span></article>;
+                  return <article className="record-row reservations" key={order.id}><strong className="record-who">{order.customer.name}</strong><strong className="record-money">{collectionLabel(budget, paid)}{budget > 0 ? ` · ${formatMoney(paid)} de ${formatMoney(budget)}` : ""}</strong><span className="record-meta"><span className="record-note">{order.title.trim() || "—"}</span><span className="record-place">{order.place ?? "—"}</span></span><span className="record-actions"><IconAction className="record-view" label="Ver" icon="view" onClick={() => openReservation(order)} /></span></article>;
                 })}</div></div> : <p className="agenda-empty">Sin reservas.</p>}
               </section>
             );
@@ -593,10 +595,10 @@ function ReservationDetail({ businessId, businessName, order, error, saving, pay
         <span>Saldo <strong>{formatMoney(Math.max(0, balance))}</strong></span>
       </div>
       <div className="customer-actions reservation-actions">
-        <button className="secondary-button" type="button" onClick={onEdit}>Editar</button>
-        {order.status === "SCHEDULED" && <button className="secondary-button" type="button" onClick={() => onStatus("DONE")}>Marcar realizada</button>}
-        {order.status === "SCHEDULED" && <button className="text-button" type="button" onClick={() => onStatus("CANCELLED")}>Cancelar</button>}
-        {order.status !== "SCHEDULED" && <button className="text-button" type="button" onClick={() => onStatus("SCHEDULED")}>Reabrir</button>}
+        <IconAction label="Editar" icon="edit" onClick={onEdit} />
+        {order.status === "SCHEDULED" && <IconAction label="Marcar realizada" icon="check" onClick={() => onStatus("DONE")} />}
+        {order.status === "SCHEDULED" && <IconAction label="Cancelar" icon="cancel" onClick={() => onStatus("CANCELLED")} />}
+        {order.status !== "SCHEDULED" && <IconAction label="Reabrir" icon="reopen" onClick={() => onStatus("SCHEDULED")} />}
       </div>
       <section className="reservation-section">
       <h3>Pagos</h3>
@@ -611,7 +613,7 @@ function ReservationDetail({ businessId, businessName, order, error, saving, pay
       <div className="customer-actions">
         {order.invoice ? (
           <>
-            <a className="secondary-button" href={`/api/v1/businesses/${businessId}/orders/${order.id}/ticket`} target="_blank" rel="noreferrer">Imprimir</a>
+            <IconLink label="Imprimir" icon="print" href={`/api/v1/businesses/${businessId}/orders/${order.id}/ticket`} target="_blank" rel="noreferrer" />
             <SendReceiptWhatsapp phone={order.customer.phone} text={receiptText({ businessName, customerName: order.customer.name, invoiceNumber: order.invoice.number, when: new Date(order.scheduledFor), lines: [order.title, order.place ?? ""].filter(Boolean), totalMinor: budget, cae: order.invoice.arcaStatus === "AUTHORIZED" ? order.invoice.cae : null })} pdfUrl={`/api/v1/businesses/${businessId}/orders/${order.id}/ticket?format=pdf`} fileName={`${order.invoice.number}.pdf`} />
           </>
         ) : budget > 0 ? <button className="secondary-button" type="button" disabled={saving} onClick={onInvoice}>{saving ? "Emitiendo..." : "Emitir comprobante"}</button> : null}
@@ -636,7 +638,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="reservation-modal-title">
         <header className="modal-header">
           <h2 id="reservation-modal-title">{title}</h2>
-          <button className="secondary-button modal-close" type="button" onClick={onClose}>Cerrar</button>
+          <ModalClose onClose={onClose} />
         </header>
         {children}
       </div>
