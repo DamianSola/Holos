@@ -451,6 +451,9 @@ model WorkList {
   assigneeId  String?        @db.Uuid
   title       String
   status      WorkListStatus @default(OPEN)
+  heading     String         @default("Descripción")
+  columns     String[]       @default([])
+  withChecks  Boolean        @default(false)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   completedAt DateTime?
@@ -470,6 +473,8 @@ model WorkListItem {
   listId    String   @db.Uuid
   text      String
   quantity  Int?
+  cells     String[] @default([])
+  checked   Boolean  @default(false)
   position  Int      @default(0)
   createdAt DateTime @default(now())
 

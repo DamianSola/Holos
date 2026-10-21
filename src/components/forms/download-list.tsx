@@ -9,6 +9,7 @@ export type DownloadChoice = {
   columns: ListColumn[];
   rows: string[][];
   checkbox?: boolean;
+  marks?: boolean[];
   subtitle?: string;
 };
 
@@ -47,6 +48,7 @@ export function DownloadList({ choices, disabled }: { choices: DownloadChoice[];
         columns: choice.columns,
         rows: choice.rows,
         checkbox: choice.checkbox,
+        marks: choice.marks,
       });
     } finally {
       setBusy(false);

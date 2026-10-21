@@ -272,23 +272,45 @@ export const taskUpdateSchema = z.object({
   if (value.addItem !== undefined && editingTask) context.addIssue({ code: "custom", message: "El ítem nuevo se envía solo." });
 });
 
+const workListColumnSchema = z.string().trim().min(1).max(40);
 const workListItemSchema = z.object({
   text: z.string().trim().min(1).max(200),
-  quantity: z.number().int().positive().max(9999).nullable().optional(),
+  cells: z.array(z.string().trim().max(120)).max(10),
+  checked: z.boolean().optional(),
 });
+
+function columnsMatchItems(columns: string[], items: Array<{ cells: string[] }>, context: { addIssue: (issue: { code: "custom"; path: Array<string | number>; message: string }) => void }) {
+  items.forEach((item, index) => {
+    if (item.cells.length !== columns.length) {
+      context.addIssue({ code: "custom", path: ["items", index, "cells"], message: "Cada renglón tiene que completar las columnas." });
+    }
+  });
+}
 
 export const workListSchema = z.object({
   title: z.string().trim().min(1).max(160),
   assigneeId: z.string().uuid().nullable().optional(),
+  heading: workListColumnSchema,
+  columns: z.array(workListColumnSchema).max(10),
+  withChecks: z.boolean(),
   items: z.array(workListItemSchema).min(1).max(200),
-}).strict();
+}).strict().superRefine((value, context) => columnsMatchItems(value.columns, value.items, context));
 
 export const workListPatchSchema = z.object({
   title: z.string().trim().min(1).max(160).optional(),
   assigneeId: z.string().uuid().nullable().optional(),
   status: z.enum(["OPEN", "DONE"]).optional(),
+  heading: workListColumnSchema.optional(),
+  columns: z.array(workListColumnSchema).max(10).optional(),
+  withChecks: z.boolean().optional(),
   items: z.array(workListItemSchema).min(1).max(200).optional(),
-}).strict().refine((value) => Object.keys(value).length > 0, { message: "Debe enviar al menos un cambio." });
+}).strict().superRefine((value, context) => {
+  if (Object.keys(value).length === 0) context.addIssue({ code: "custom", message: "Debe enviar al menos un cambio." });
+  if (!value.items) return;
+  if (!value.heading) context.addIssue({ code: "custom", path: ["heading"], message: "Indicá el nombre de la primera columna." });
+  if (!value.columns) context.addIssue({ code: "custom", path: ["columns"], message: "Indicá las columnas." });
+  columnsMatchItems(value.columns ?? [], value.items, context);
+});
 
 export const fiscalProfileSchema = z.object({
   legalName: z.string().trim().min(1).max(160),

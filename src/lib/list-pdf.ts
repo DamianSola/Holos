@@ -10,6 +10,7 @@ export type ListPdf = {
   columns: ListColumn[];
   rows: string[][];
   checkbox?: boolean;
+  marks?: boolean[];
 };
 
 const PAGE_W = 595.28;
@@ -84,10 +85,14 @@ export async function downloadListPdf(input: ListPdf) {
   }
 
   const rows = input.rows.length ? input.rows : [input.columns.map(() => "")];
-  for (const row of rows) {
+  rows.forEach((row, rowIndex) => {
     if (y < MARGIN + 18) nextPage();
     if (input.checkbox && input.rows.length > 0) {
       page.drawRectangle({ x: MARGIN, y: y - 11, width: 9, height: 9, borderWidth: 0.8, borderColor: ink });
+      if (input.marks?.[rowIndex]) {
+        page.drawLine({ start: { x: MARGIN + 2, y: y - 6 }, end: { x: MARGIN + 7, y: y - 10 }, thickness: 1, color: ink });
+        page.drawLine({ start: { x: MARGIN + 2, y: y - 10 }, end: { x: MARGIN + 7, y: y - 4 }, thickness: 1, color: ink });
+      }
     }
     let x = MARGIN + check;
     input.columns.forEach((_, index) => {
@@ -95,7 +100,7 @@ export async function downloadListPdf(input: ListPdf) {
       x += widths[index];
     });
     y -= 20;
-  }
+  });
 
   const bytes = await doc.save();
   const blob = new Blob([Uint8Array.from(bytes)], { type: "application/pdf" });

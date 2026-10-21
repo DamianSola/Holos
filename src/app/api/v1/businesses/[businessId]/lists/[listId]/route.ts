@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
-import { workListInclude } from "@/server/services/work-lists";
+import { presentWorkList, workListInclude } from "@/server/services/work-lists";
 import { businessIdSchema, workListPatchSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string; listId: string }> };
@@ -32,7 +32,8 @@ export async function PATCH(request: Request, context: Context) {
           data: parsed.data.items.map((item, index) => ({
             listId,
             text: item.text,
-            quantity: item.quantity ?? null,
+            cells: item.cells,
+            checked: Boolean(parsed.data.withChecks) && Boolean(item.checked),
             position: index,
           })),
         });
@@ -41,6 +42,9 @@ export async function PATCH(request: Request, context: Context) {
         where: { id: listId },
         data: {
           ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+          ...(parsed.data.heading !== undefined ? { heading: parsed.data.heading } : {}),
+          ...(parsed.data.columns !== undefined ? { columns: parsed.data.columns } : {}),
+          ...(parsed.data.withChecks !== undefined ? { withChecks: parsed.data.withChecks } : {}),
           ...(parsed.data.assigneeId !== undefined ? { assigneeId: parsed.data.assigneeId } : {}),
           ...(parsed.data.status !== undefined ? {
             status: parsed.data.status,
@@ -50,7 +54,7 @@ export async function PATCH(request: Request, context: Context) {
         include: workListInclude,
       });
     });
-    return Response.json({ ...list, status });
+    return Response.json({ ...presentWorkList(list), status });
   } catch {
     return unexpectedError();
   }

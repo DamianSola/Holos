@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { PlusIcon } from "@/components/brand/nav-icons";
+import { IconAction } from "@/components/forms/icon-action";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { DownloadList } from "@/components/forms/download-list";
 import { FormModal } from "@/components/forms/form-modal";
@@ -9,26 +10,29 @@ import { ModuleLayout } from "@/components/modules/customers-page";
 import { shortageQuantity } from "@/lib/shopping-lines";
 
 type Member = { id: string; name: string | null; email: string };
-type ListItem = { id: string; text: string; quantity: number | null; position: number };
+type ListItem = { id: string; text: string; cells: string[]; checked: boolean; position: number };
 type WorkList = {
   id: string;
   title: string;
   status: "OPEN" | "DONE";
+  heading: string;
+  columns: string[];
+  withChecks: boolean;
   assignee: Member | null;
   items: ListItem[];
 };
-type DraftLine = { text: string; quantity: string };
+type DraftLine = { text: string; cells: string[]; checked: boolean };
 type Product = { name: string; stock: number; minimumStock: number; status: string };
 
-const columns = [{ label: "Cant.", weight: 0.7 }, { label: "Ítem", weight: 3 }];
+const MAX_COLUMNS = 10;
 
-function blankLine(): DraftLine {
-  return { text: "", quantity: "" };
+function blankLine(columnCount: number): DraftLine {
+  return { text: "", cells: Array.from({ length: columnCount }, () => ""), checked: false };
 }
 
 function defaultTitle() {
   const label = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date()).replace(".", "");
-  return `Compras · ${label}`;
+  return `Lista · ${label}`;
 }
 
 function personName(member: Member | null) {
@@ -36,8 +40,8 @@ function personName(member: Member | null) {
   return member.name?.trim() || member.email;
 }
 
-function linesOf(list: WorkList) {
-  return list.items.map((item) => [item.quantity ? String(item.quantity) : "", item.text]);
+function pdfColumns(heading: string, columns: string[]) {
+  return [{ label: heading, weight: 3 }, ...columns.map((label) => ({ label, weight: 1.2 }))];
 }
 
 export function ListsPage({ businessId }: { businessId: string }) {
@@ -51,7 +55,10 @@ export function ListsPage({ businessId }: { businessId: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
-  const [lines, setLines] = useState<DraftLine[]>([blankLine()]);
+  const [heading, setHeading] = useState("Descripción");
+  const [columns, setColumns] = useState<string[]>([]);
+  const [withChecks, setWithChecks] = useState(false);
+  const [lines, setLines] = useState<DraftLine[]>([blankLine(0)]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   async function load() {
@@ -79,7 +86,10 @@ export function ListsPage({ businessId }: { businessId: string }) {
     setEditingId(null);
     setTitle(defaultTitle());
     setAssigneeId("");
-    setLines([blankLine()]);
+    setHeading("Descripción");
+    setColumns([]);
+    setWithChecks(false);
+    setLines([blankLine(0)]);
     setFormOpen(true);
   }
 
@@ -89,7 +99,10 @@ export function ListsPage({ businessId }: { businessId: string }) {
     setEditingId(list.id);
     setTitle(list.title);
     setAssigneeId(list.assignee?.id ?? "");
-    setLines(list.items.length ? list.items.map((item) => ({ text: item.text, quantity: item.quantity ? String(item.quantity) : "" })) : [blankLine()]);
+    setHeading(list.heading || "Descripción");
+    setColumns(list.columns);
+    setWithChecks(list.withChecks);
+    setLines(list.items.length ? list.items.map((item) => ({ text: item.text, cells: list.columns.map((_, index) => item.cells[index] ?? ""), checked: item.checked })) : [blankLine(list.columns.length)]);
     setFormOpen(true);
   }
 
@@ -104,23 +117,43 @@ export function ListsPage({ businessId }: { businessId: string }) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
   }
 
+  function addColumn() {
+    if (columns.length >= MAX_COLUMNS) return;
+    setColumns((current) => [...current, ""]);
+    setLines((current) => current.map((line) => ({ ...line, cells: [...line.cells, ""] })));
+  }
+
+  function renameColumn(index: number, name: string) {
+    setColumns((current) => current.map((column, columnIndex) => columnIndex === index ? name : column));
+  }
+
+  function removeColumn(index: number) {
+    setColumns((current) => current.filter((_, columnIndex) => columnIndex !== index));
+    setLines((current) => current.map((line) => ({ ...line, cells: line.cells.filter((_, cellIndex) => cellIndex !== index) })));
+  }
+
   function payloadItems() {
     return lines
-      .map((line) => ({ text: line.text.trim(), quantity: line.quantity.trim() ? Number(line.quantity) : null }))
-      .filter((line) => line.text.length > 0)
-      .map((line) => ({ text: line.text, quantity: line.quantity && Number.isFinite(line.quantity) && line.quantity > 0 ? Math.round(line.quantity) : null }));
+      .map((line) => ({ text: line.text.trim(), cells: line.cells.map((cell) => cell.trim()), checked: withChecks && line.checked }))
+      .filter((line) => line.text.length > 0);
   }
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    const first = heading.trim();
+    const named = columns.map((column) => column.trim());
+    if (!first || named.some((column) => column.length === 0)) {
+      setError("Poné el nombre de cada columna.");
+      return;
+    }
     const items = payloadItems();
     if (!title.trim() || items.length === 0) {
-      setError("Escribí un título y al menos un ítem.");
+      setError("Escribí un título y al menos una descripción.");
       return;
     }
     setSaving(true);
     setError("");
-    const body = { title: title.trim(), assigneeId: assigneeId || null, items };
+    const body = { title: title.trim(), assigneeId: assigneeId || null, heading: first, columns: named, withChecks, items };
     const response = await fetch(editingId ? `/api/v1/businesses/${businessId}/lists/${editingId}` : `/api/v1/businesses/${businessId}/lists`, {
       method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -177,13 +210,14 @@ export function ListsPage({ businessId }: { businessId: string }) {
       const quantity = shortageQuantity(product.stock, product.minimumStock);
       if (quantity < 1 || existing.has(product.name.trim().toLocaleLowerCase("es"))) return [];
       existing.add(product.name.trim().toLocaleLowerCase("es"));
-      return [{ text: product.name, quantity: String(quantity) }];
+      const cells = columns.map((_, index) => index === 0 ? String(quantity) : "");
+      return [{ text: product.name, cells, checked: false }];
     });
     if (additions.length === 0) {
       setNote("No hay productos bajo el mínimo.");
       return;
     }
-    setLines((current) => [...current.filter((line) => line.text.trim() || line.quantity.trim()), ...additions]);
+    setLines((current) => [...current.filter((line) => line.text.trim() || line.cells.some((cell) => cell.trim())), ...additions]);
   }
 
   const editing = lists.find((list) => list.id === editingId) ?? null;
@@ -194,73 +228,120 @@ export function ListsPage({ businessId }: { businessId: string }) {
         <button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />Nueva lista</button>
       </div>
       {error && !formOpen && <p className="form-error" role="alert">{error}</p>}
-      {loading ? <div className="module-state">Cargando...</div> : lists.length === 0 ? <div className="module-state">Todavía no hay listas. Armá una de compras y descargala para quien va a hacerla.</div> : (
-        <div className="record-scroll"><div className="record-list work-lists">
-          {lists.map((list) => (
-            <article className="record-row work-lists" key={list.id}>
-              <strong className="record-who">{list.title}</strong>
-              <span className="record-meta">
-                <span>{list.assignee ? `Para ${personName(list.assignee)}` : "Sin asignar"}</span>
-                <span>{list.items.length === 1 ? "1 ítem" : `${list.items.length} ítems`}</span>
-                <span>{list.status === "DONE" ? "Hecha" : "Abierta"}</span>
-              </span>
-              <span className="record-actions">
-                <DownloadList choices={[{ label: "PDF", title: list.title, subtitle: list.assignee ? `Para ${personName(list.assignee)}` : undefined, columns, rows: linesOf(list), checkbox: true }]} />
-                <button className="secondary-button record-view" type="button" onClick={() => openEdit(list)}>Ver</button>
-              </span>
-            </article>
-          ))}
-        </div></div>
+      {loading ? <div className="module-state">Cargando...</div> : lists.length === 0 ? <div className="module-state">Todavía no hay listas.</div> : (
+        <div className="list-board">
+          {lists.map((list) => {
+            const detail = [
+              list.assignee ? `Para ${personName(list.assignee)}` : "Sin asignar",
+              list.items.length === 1 ? "1 ítem" : `${list.items.length} ítems`,
+              list.status === "DONE" ? "Hecha" : "Abierta",
+            ].join(" · ");
+            return (
+              <article className="list-card" key={list.id}>
+                <div>
+                  <strong>{list.title}</strong>
+                  <p>{detail}</p>
+                </div>
+                <div className="list-card-actions">
+                  <DownloadList choices={[{
+                    label: "PDF",
+                    title: list.title,
+                    subtitle: list.assignee ? `Para ${personName(list.assignee)}` : undefined,
+                    columns: pdfColumns(list.heading || "Descripción", list.columns),
+                    rows: list.items.map((item) => [item.text, ...list.columns.map((_, index) => item.cells[index] ?? "")]),
+                    checkbox: list.withChecks,
+                    marks: list.withChecks ? list.items.map((item) => item.checked) : undefined,
+                  }]} />
+                  <IconAction label="Ver" icon="view" onClick={() => openEdit(list)} />
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
       {formOpen && (
-        <FormModal title={editingId ? "Editar lista" : "Nueva lista"} onClose={closeForm}>
-          <form className="customer-form" onSubmit={(event) => void save(event)}>
-            <div className="customer-form-grid">
-              <label className="customer-form-wide">Título<input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={160} /></label>
-              <label className="customer-form-wide">Para
+        <FormModal wide title={editingId ? "Editar lista" : "Nueva lista"} onClose={closeForm}>
+          <form className="customer-form list-form" onSubmit={(event) => void save(event)}>
+            <div className="list-form-fields">
+              <label>Título<input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={160} /></label>
+              <label>Para
                 <select value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>
                   <option value="">Sin asignar</option>
                   {members.map((member) => <option key={member.id} value={member.id}>{personName(member)}</option>)}
                 </select>
               </label>
             </div>
+            <div className="list-columns">
+              <span className="list-column-chip">
+                <input aria-label="Nombre de la primera columna" value={heading} maxLength={40} placeholder="Descripción" onChange={(event) => setHeading(event.target.value)} />
+              </span>
+              {columns.map((column, index) => (
+                <span className="list-column-chip" key={index}>
+                  <input aria-label={`Nombre de la columna ${index + 2}`} value={column} maxLength={40} placeholder="Nombre" onChange={(event) => renameColumn(index, event.target.value)} />
+                  <button className="list-x" type="button" aria-label={`Quitar columna ${index + 2}`} onClick={() => removeColumn(index)}>
+                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </button>
+                </span>
+              ))}
+              <IconAction label="Columna" icon="add" onClick={addColumn} disabled={columns.length >= MAX_COLUMNS} />
+              <label className="auth-check list-check"><input type="checkbox" checked={withChecks} onChange={(event) => setWithChecks(event.target.checked)} /><span>Casilla para tildar</span></label>
+            </div>
             <div className="list-lines">
               {lines.map((line, index) => (
                 <div className="list-line" key={index}>
-                  <input aria-label={`Cantidad ${index + 1}`} inputMode="numeric" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value.replace(/[^\d]/g, "") })} placeholder="Cant." />
+                  {withChecks && <input aria-label={`Tildar renglón ${index + 1}`} type="checkbox" checked={line.checked} onChange={(event) => updateLine(index, { checked: event.target.checked })} />}
                   <input
-                    aria-label={`Ítem ${index + 1}`}
+                    className="list-desc"
+                    aria-label={`${heading.trim() || "Descripción"} ${index + 1}`}
                     value={line.text}
                     maxLength={200}
-                    placeholder="Qué hay que comprar"
+                    placeholder={heading.trim() || "Descripción"}
                     onChange={(event) => updateLine(index, { text: event.target.value })}
                     onKeyDown={(event) => {
                       if (event.key !== "Enter") return;
                       event.preventDefault();
                       setLines((current) => {
                         const next = [...current];
-                        next.splice(index + 1, 0, blankLine());
+                        next.splice(index + 1, 0, blankLine(columns.length));
                         return next;
                       });
                     }}
                   />
-                  <button className="text-button" type="button" onClick={() => setLines((current) => current.length === 1 ? [blankLine()] : current.filter((_, lineIndex) => lineIndex !== index))}>Quitar</button>
+                  {columns.map((column, cellIndex) => (
+                    <input
+                      className="list-cell"
+                      key={cellIndex}
+                      aria-label={`${column.trim() || `Columna ${cellIndex + 2}`} ${index + 1}`}
+                      value={line.cells[cellIndex] ?? ""}
+                      maxLength={120}
+                      placeholder={column.trim() || "—"}
+                      onChange={(event) => {
+                        const cells = line.cells.map((cell, currentIndex) => currentIndex === cellIndex ? event.target.value : cell);
+                        updateLine(index, { cells });
+                      }}
+                    />
+                  ))}
+                  <button className="list-x" type="button" aria-label={`Quitar renglón ${index + 1}`} onClick={() => setLines((current) => current.length === 1 ? [blankLine(columns.length)] : current.filter((_, lineIndex) => lineIndex !== index))}>
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </button>
                 </div>
               ))}
             </div>
-            <div className="customer-actions">
-              <button className="secondary-button" type="button" onClick={() => setLines((current) => [...current, blankLine()])}>Agregar renglón</button>
-              <button className="secondary-button" type="button" onClick={() => void bringShortages()}>Traer lo que falta</button>
+            <div className="list-form-links">
+              <IconAction label="Renglón" icon="add" onClick={() => setLines((current) => [...current, blankLine(columns.length)])} />
+              <button className="text-button" type="button" onClick={() => void bringShortages()}>Traer lo que falta</button>
             </div>
             {note && <p className="form-success" role="status">{note}</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : "Guardar lista"}</button>
-            {editing && (
-              <div className="customer-actions">
-                <button className="secondary-button" type="button" onClick={() => void setStatus(editing, editing.status === "DONE" ? "OPEN" : "DONE")}>{editing.status === "DONE" ? "Reabrir" : "Marcar hecha"}</button>
-                <button className="text-button" type="button" onClick={() => setPendingDeleteId(editing.id)}>Eliminar</button>
-              </div>
-            )}
+            <div className="list-form-footer">
+              <button className="auth-submit" type="submit" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+              {editing && (
+                <>
+                  <IconAction label={editing.status === "DONE" ? "Reabrir" : "Marcar hecha"} icon={editing.status === "DONE" ? "reopen" : "check"} onClick={() => void setStatus(editing, editing.status === "DONE" ? "OPEN" : "DONE")} />
+                  <IconAction label="Eliminar" icon="delete" onClick={() => setPendingDeleteId(editing.id)} />
+                </>
+              )}
+            </div>
           </form>
         </FormModal>
       )}

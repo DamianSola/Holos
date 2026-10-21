@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { authorizeBusiness } from "@/server/auth/authorization";
 import { errorResponse, unexpectedError } from "@/server/http";
-import { workListInclude } from "@/server/services/work-lists";
+import { presentWorkList, workListInclude } from "@/server/services/work-lists";
 import { workListSchema } from "@/server/validators/domain";
 
 type Context = { params: Promise<{ businessId: string }> };
@@ -23,7 +23,7 @@ export async function GET(_request: Request, context: Context) {
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 100,
   });
-  return Response.json({ items });
+  return Response.json({ items: items.map((list) => presentWorkList(list)) });
 }
 
 export async function POST(request: Request, context: Context) {
@@ -44,17 +44,21 @@ export async function POST(request: Request, context: Context) {
         createdById: access.user.id,
         assigneeId: parsed.data.assigneeId || null,
         title: parsed.data.title,
+        heading: parsed.data.heading,
+        columns: parsed.data.columns,
+        withChecks: parsed.data.withChecks,
         items: {
           create: parsed.data.items.map((item, index) => ({
             text: item.text,
-            quantity: item.quantity ?? null,
+            cells: item.cells,
+            checked: parsed.data.withChecks && Boolean(item.checked),
             position: index,
           })),
         },
       },
       include: workListInclude,
     });
-    return Response.json(list, { status: 201 });
+    return Response.json(presentWorkList(list), { status: 201 });
   } catch {
     return unexpectedError();
   }
