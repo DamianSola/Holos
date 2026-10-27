@@ -48,6 +48,6 @@ const activityLabels: Record<string, string> = {
   RESERVATION_INVOICED: "Reserva facturada",
 };
 
-function activityLabel(type: string) {
+export function activityLabel(type: string) {
   return activityLabels[type] ?? "Movimiento";
 }

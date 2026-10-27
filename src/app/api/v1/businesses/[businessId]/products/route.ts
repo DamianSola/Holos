@@ -9,7 +9,7 @@ export async function GET(_request: Request, context: Context) {
   const { businessId } = await context.params;
   const access = await authorizeBusiness(businessId);
   if ("response" in access) return access.response;
-  const products = await prisma.product.findMany({ where: { businessId, deletedAt: null }, orderBy: { name: "asc" }, take: 100 });
+  const products = await prisma.product.findMany({ where: { businessId, deletedAt: null }, orderBy: { name: "asc" }, take: 500 });
   return Response.json({ items: products });
 }
 

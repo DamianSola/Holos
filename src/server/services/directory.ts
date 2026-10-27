@@ -10,6 +10,8 @@ export type DirectoryBusiness = {
   customerCount: number;
   productCount: number;
   criticalProducts: number;
+  openTasks: number;
+  overdueTasks: number;
   salesMonthMinor: number;
   salesTodayMinor: number;
 };
@@ -29,7 +31,7 @@ export async function getBusinessDirectory(userId: string): Promise<DirectoryBus
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const idList = Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`));
 
-  const [customers, products, salesMonth, salesToday, paymentsMonth, paymentsToday, critical] = await Promise.all([
+  const [customers, products, salesMonth, salesToday, paymentsMonth, paymentsToday, critical, openTasks, overdueTasks] = await Promise.all([
     prisma.customer.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, deletedAt: null }, _count: { _all: true } }),
     prisma.product.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, status: "ACTIVE", deletedAt: null }, _count: { _all: true } }),
     prisma.sale.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, orderId: null, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } }, _sum: { totalMinor: true } }),
@@ -45,6 +47,8 @@ export async function getBusinessDirectory(userId: string): Promise<DirectoryBus
         AND "businessId" IN (${idList})
       GROUP BY "businessId"
     `),
+    prisma.task.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, status: "OPEN" }, _count: { _all: true } }),
+    prisma.task.groupBy({ by: ["businessId"], where: { businessId: { in: ids }, status: "OPEN", dueDate: { lt: now } }, _count: { _all: true } }),
   ]);
 
   const customerCount = new Map(customers.map((row) => [row.businessId, row._count._all]));
@@ -54,6 +58,8 @@ export async function getBusinessDirectory(userId: string): Promise<DirectoryBus
   const monthPayments = new Map(paymentsMonth.map((row) => [row.businessId, row._sum.amountMinor ?? 0]));
   const todayPayments = new Map(paymentsToday.map((row) => [row.businessId, row._sum.amountMinor ?? 0]));
   const criticalCount = new Map(critical.map((row) => [row.businessId, Number(row.total)]));
+  const openTaskCount = new Map(openTasks.map((row) => [row.businessId, row._count._all]));
+  const overdueTaskCount = new Map(overdueTasks.map((row) => [row.businessId, row._count._all]));
 
   return memberships.map(({ role, business }) => ({
     id: business.id,
@@ -64,6 +70,8 @@ export async function getBusinessDirectory(userId: string): Promise<DirectoryBus
     customerCount: customerCount.get(business.id) ?? 0,
     productCount: productCount.get(business.id) ?? 0,
     criticalProducts: criticalCount.get(business.id) ?? 0,
+    openTasks: openTaskCount.get(business.id) ?? 0,
+    overdueTasks: overdueTaskCount.get(business.id) ?? 0,
     salesMonthMinor: (monthSales.get(business.id) ?? 0) + (monthPayments.get(business.id) ?? 0),
     salesTodayMinor: (todaySales.get(business.id) ?? 0) + (todayPayments.get(business.id) ?? 0),
   }));

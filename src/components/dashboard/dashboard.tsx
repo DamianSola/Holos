@@ -24,10 +24,18 @@ export async function Dashboard({ businessId, businessName, businessImage }: Das
     <div className="dashboard">
       <section className="dashboard-intro">
         <div>
-          <p className="eyebrow">Este negocio</p>
+          <p className="eyebrow">{service ? "Servicios" : "Venta de productos"}</p>
           <div className="identity-line">{businessImage ? <img className="business-logo" src={businessImage} alt="" /> : null}<h1>{businessName}</h1></div>
         </div>
+        <a className="auth-submit" href={service ? `/businesses/${businessId}/orders` : `/businesses/${businessId}/sales`}>{service ? "Nueva reserva" : "Registrar venta"}</a>
       </section>
+
+      <div className="metric-grid">
+        <article className="summary-card"><span>Ingresos del mes</span><strong>{formatMoney(data.movement.month.incomeMinor)}</strong><small>Ventas de mostrador y cobros registrados.</small></article>
+        <article className="summary-card"><span>Gastos del mes</span><strong>{formatMoney(data.movement.month.expensesMinor)}</strong><small>Los gastos no mueven el stock.</small></article>
+        <article className="summary-card"><span>Resultado del mes</span><strong className={data.movement.month.incomeMinor - data.movement.month.expensesMinor >= 0 ? "metric-positive" : "metric-negative"}>{formatMoney(data.movement.month.incomeMinor - data.movement.month.expensesMinor)}</strong><small>Ingresos menos gastos.</small></article>
+        <article className="summary-card"><span>Stock bajo</span><strong>{data.criticalCount}</strong><small>{data.emptyProducts} sin existencias · {data.activeProducts} activos</small></article>
+      </div>
 
       <section className="today-work" aria-label="Hoy">
         <div className="status-grid">
@@ -40,7 +48,26 @@ export async function Dashboard({ businessId, businessName, businessImage }: Das
         ) : openWork.length ? <div className="data-list">{openWork.map((order) => <a className="data-row" key={order.id} href={`/businesses/${businessId}/orders?pedido=${order.id}`}><span>{order.customerName}</span><strong>{orderRowPhrase("SCHEDULED", order.delivered, order.total, order.charge, order.paid, formatMoney)}</strong></a>)}</div> : <div className="empty-state"><p>No hay pedidos por entregar ni por cobrar.</p></div>}
       </section>
 
-      <MovementPeriod businessId={businessId} service={service} movement={data.movement} />
+      <div id="movimiento">
+        <MovementPeriod businessId={businessId} service={service} movement={data.movement} />
+      </div>
+      <div className="dashboard-split">
+        <section className="panel">
+          <div className="panel-heading"><h2>Ventas del mes por estado</h2></div>
+          {data.saleStatuses.length ? <div className="status-pills">{data.saleStatuses.map((row) => <span key={row.status}>{saleStatus(row.status)} · {row.count}</span>)}</div> : <div className="empty-state"><p>Este mes no hay ventas cargadas.</p></div>}
+        </section>
+        <section className="panel">
+          <div className="panel-heading"><h2>Más vendidos</h2></div>
+          {data.topProducts.length ? (
+            <table className="rank-table">
+              <thead><tr><th>Producto</th><th>Unidades</th><th>Importe</th></tr></thead>
+              <tbody>
+                {data.topProducts.map((product) => <tr key={product.name}><td>{product.name}</td><td>{product.quantity}</td><td>{formatMoney(product.totalMinor)}</td></tr>)}
+              </tbody>
+            </table>
+          ) : <div className="empty-state"><p>Todavía no hay ventas confirmadas este mes.</p></div>}
+        </section>
+      </div>
       <BusinessMonthChart trend={data.trend} />
       {data.criticalProducts.length > 0 && (
         <ul className="portfolio-alerts">
@@ -55,8 +82,15 @@ export async function Dashboard({ businessId, businessName, businessImage }: Das
         {service ? <ServiceCollections businessId={businessId} payments={data.recentPayments} sales={data.recentSales} /> : data.recentSales.length ? <div className="data-list">{data.recentSales.map((sale) => <a className="data-row" key={sale.id} href={`/businesses/${businessId}/sales?venta=${sale.id}`}><span>{rowWhen(sale.confirmedAt ?? sale.createdAt)} · {sale.customer?.name ?? "Consumidor final"} · {saleStatus(sale.status)}</span><strong>{formatMoney(sale.totalMinor)}</strong></a>)}</div> : <div className="empty-state"><p>Todavía no hay ventas registradas.</p></div>}
       </section>
 
+      <section className="panel">
+        <div className="panel-heading"><h2>Inventario</h2></div>
+        <p className="intro-copy">{data.activeProducts} activos · {data.criticalCount} bajo el mínimo · {data.emptyProducts} sin existencias</p>
+        {data.recentMovements.length ? <div className="data-list">{data.recentMovements.map((movement) => <div className="data-row" key={movement.id}><span>{movement.product.name} · {movementLabel(movement.type)} {movement.quantity > 0 ? "+" : ""}{movement.quantity}</span><strong>{rowWhen(movement.createdAt)}</strong></div>)}</div> : <div className="empty-state"><p>Todavía no hay movimientos de stock.</p></div>}
+      </section>
       <RecentActivity events={data.activity.map((event) => ({ id: event.id, type: event.type, createdAt: event.createdAt.toISOString() }))} />
-      <TasksPanel businessId={businessId} members={data.members.map((membership) => membership.user)} />
+      <div id="tareas">
+        <TasksPanel businessId={businessId} members={data.members.map((membership) => membership.user)} />
+      </div>
     </div>
   );
 }
@@ -127,6 +161,13 @@ function saleStatus(status: string) {
   if (status === "CONFIRMED") return "Confirmada";
   if (status === "CANCELLED") return "Cancelada";
   return "Borrador";
+}
+
+function movementLabel(type: string) {
+  if (type === "INITIAL") return "Inicial";
+  if (type === "SALE") return "Venta";
+  if (type === "RESTOCK") return "Ingreso";
+  return "Ajuste";
 }
 
 function visitTime(value: Date) {

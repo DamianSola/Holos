@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { ImagePicker } from "@/components/forms/account-fields";
 import { ConfirmModal } from "@/components/forms/confirm-modal";
+import { activityLabel } from "@/components/dashboard/recent-activity";
 
 type BusinessKind = "STORE" | "SERVICE";
 
@@ -17,17 +18,20 @@ type BusinessSummary = {
   salesMonthMinor: number;
   salesTodayMinor: number;
   criticalProducts: number;
+  openTasks: number;
+  overdueTasks: number;
 };
 
 type Portfolio = {
   businesses: Array<{ id: string; name: string; role: "OWNER" | "EMPLOYEE" }>;
-  totals: { businessCount: number; customerCount: number; productCount: number; criticalProducts: number; salesMonthMinor: number; salesTodayMinor: number; expensesMonthMinor: number; netMonthMinor: number };
+  totals: { businessCount: number; customerCount: number; productCount: number; criticalProducts: number; salesMonthMinor: number; salesTodayMinor: number; expensesMonthMinor: number; netMonthMinor: number; confirmedSalesCount: number };
+  activity: Array<{ id: string; type: string; createdAt: string; businessId: string; businessName: string }>;
   trend: Array<{ label: string; incomeMinor: number; expensesMinor: number; netMinor: number; current: boolean; incomeDeltaPercent: number | null; expensesDeltaPercent: number | null; netDeltaPercent: number | null }>;
 };
 
 const emptyForm = { name: "", kind: "STORE" as BusinessKind, image: "" };
 
-export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialPortfolio: Portfolio; initialBusinesses: BusinessSummary[] }) {
+export function BusinessPage({ initialPortfolio, initialBusinesses, userName }: { initialPortfolio: Portfolio; initialBusinesses: BusinessSummary[]; userName: string }) {
   const [businesses, setBusinesses] = useState<BusinessSummary[]>(initialBusinesses);
   const [form, setForm] = useState(emptyForm);
   const [pendingArchive, setPendingArchive] = useState<BusinessSummary | null>(null);
@@ -107,34 +111,93 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
   }
 
   const listed = useMemo(() => [...businesses].sort((left, right) => right.salesMonthMinor - left.salesMonthMinor || left.name.localeCompare(right.name, "es")), [businesses]);
-  const alerts = listed.filter((business) => business.criticalProducts > 0);
+  const alerts = listed.filter((business) => business.criticalProducts > 0 || business.overdueTasks > 0);
+  const openTasks = listed.reduce((total, business) => total + business.openTasks, 0);
+  const overdueTasks = listed.reduce((total, business) => total + business.overdueTasks, 0);
+  const peak = Math.max(...listed.map((business) => business.salesMonthMinor), 1);
+  const currentIndex = initialPortfolio.trend.findIndex((period) => period.current);
+  const incomeDelta = currentIndex > 0 ? initialPortfolio.trend[currentIndex]?.incomeDeltaPercent ?? null : null;
 
   return (
     <section className="module-page portfolio-page">
-      <p className="eyebrow">Tablero general</p>
-      <h1>Todos tus negocios</h1>
+      <div className="portfolio-lead">
+        <div>
+          <p className="eyebrow">Resumen general</p>
+          <h1>{greeting(userName)}</h1>
+          <p>Este es el estado general de tus negocios.</p>
+        </div>
+        <a className="auth-submit" href="#crear-negocio">Crear negocio</a>
+      </div>
 
-      <div className="portfolio-stat-grid">
-        <article className="summary-card"><span>Entró hoy</span><strong>{formatMoney(initialPortfolio.totals.salesTodayMinor)}</strong></article>
-        <article className="summary-card"><span>Ingresos del mes</span><strong>{formatMoney(initialPortfolio.totals.salesMonthMinor)}</strong></article>
+      <div className="metric-grid">
         <article className="summary-card">
-          <span>Resultado del mes</span>
-          <strong className={initialPortfolio.totals.netMonthMinor >= 0 ? "metric-positive" : "metric-negative"}>{formatMoney(initialPortfolio.totals.netMonthMinor)}</strong>
-          <small>Gastos {formatMoney(initialPortfolio.totals.expensesMonthMinor)}</small>
+          <span>Ingresos del mes</span>
+          <strong>{formatMoney(initialPortfolio.totals.salesMonthMinor)}</strong>
+          <small>{incomeDelta === null ? "Sin mes anterior para comparar" : `Ventas y cobros · ${signed(incomeDelta)}% vs. el mes pasado`}</small>
+        </article>
+        <article className="summary-card">
+          <span>Ventas confirmadas</span>
+          <strong>{initialPortfolio.totals.confirmedSalesCount}</strong>
+          <small>De mostrador. Los cobros de pedidos van en ingresos.</small>
+        </article>
+        <article className="summary-card">
+          <span>Tareas pendientes</span>
+          <strong>{openTasks}</strong>
+          <small>{overdueTasks > 0 ? `${overdueTasks} vencidas` : "Ninguna vencida"}</small>
+        </article>
+        <article className="summary-card">
+          <span>Negocios activos</span>
+          <strong>{listed.length}</strong>
+          <small>Todos en pesos</small>
         </article>
       </div>
 
       <MonthChart trend={initialPortfolio.trend} />
 
-      {alerts.length > 0 && (
-        <ul className="portfolio-alerts">
-          {alerts.map((business) => (
-            <li key={business.id}>
-              <a href={`/businesses/${business.id}${business.kind === "SERVICE" ? "/stock" : "/products"}`}>{business.name} · {stockAlert(business.criticalProducts)}</a>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="dashboard-split">
+        <section className="panel" aria-label="Comparación de negocios">
+          <div className="panel-heading"><h2>Comparación del mes</h2></div>
+          {listed.some((business) => business.salesMonthMinor > 0) ? (
+            <div className="compare-list">
+              {listed.map((business) => (
+                <a className="compare-row" key={business.id} href={`/businesses/${business.id}`}>
+                  <span>{business.name}</span>
+                  <strong>{formatMoney(business.salesMonthMinor)}</strong>
+                  <span className="compare-track" aria-hidden="true"><span className="compare-fill" style={{ width: `${Math.round((business.salesMonthMinor / peak) * 100)}%` }} /></span>
+                </a>
+              ))}
+            </div>
+          ) : <div className="empty-state"><p>Este mes todavía no hay ingresos para comparar.</p></div>}
+        </section>
+        <section className="panel" aria-label="Pendientes">
+          <div className="panel-heading"><h2>Pendientes</h2></div>
+          {alerts.length ? (
+            <ul className="portfolio-alerts">
+              {alerts.map((business) => (
+                <li key={business.id}>
+                  <a href={`/businesses/${business.id}${business.criticalProducts > 0 ? (business.kind === "SERVICE" ? "/stock" : "/products") : ""}`}>
+                    {business.name} · {attentionPhrase(business)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : <div className="empty-state"><p>No hay stock bajo ni tareas vencidas.</p></div>}
+        </section>
+      </div>
+
+      <section className="panel" aria-label="Actividad reciente">
+        <div className="panel-heading"><h2>Actividad reciente</h2></div>
+        {initialPortfolio.activity.length ? (
+          <div className="data-list">
+            {initialPortfolio.activity.map((event) => (
+              <a className="data-row" key={event.id} href={`/businesses/${event.businessId}`}>
+                <span>{activityLabel(event.type)} · {event.businessName}</span>
+                <strong>{rowWhen(event.createdAt)}</strong>
+              </a>
+            ))}
+          </div>
+        ) : <div className="empty-state"><p>Todavía no hay actividad registrada.</p></div>}
+      </section>
 
       {error && <p className="form-error" role="alert">{error}</p>}
       {success && <p className="form-success" role="status">{success}</p>}
@@ -152,12 +215,12 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
                   {business.image ? <img className="business-logo" src={business.image} alt="" /> : <span className="business-mark" aria-hidden="true">{businessInitial(business.name)}</span>}
                   <div>
                     <strong>{business.name}</strong>
-                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {service ? "Servicios" : "Venta de productos"}</p>
+                    <p>{business.role === "OWNER" ? "Dueño" : "Colaborador"} · {service ? "Servicios" : "Venta de productos"}{business.openTasks ? ` · ${business.openTasks} tareas` : ""}</p>
                   </div>
                 </div>
                 <div className="business-row-money is-today"><span>Hoy</span><strong>{formatMoney(business.salesTodayMinor)}</strong></div>
                 <div className="business-row-money is-month"><span>Este mes</span><strong>{formatMoney(business.salesMonthMinor)}</strong></div>
-                <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir</a>
+                <a className="secondary-button" href={`/businesses/${business.id}`}>Abrir negocio</a>
                 {business.role === "OWNER" && (
                   <div className="business-row-tools">
                     <ImagePicker label={business.image ? "Cambiar imagen" : "Agregar imagen"} value={business.image ?? ""} onChange={(image) => void updateBusinessImage(business.id, image)} />
@@ -174,7 +237,7 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
         <div className="module-state">Todavía no creaste ningún negocio.</div>
       )}
 
-      <form className="customer-form" onSubmit={createBusiness}>
+      <form className="customer-form" id="crear-negocio" onSubmit={createBusiness}>
         <div className="customer-form-heading">
           <div>
             <h2>Crear negocio</h2>
@@ -199,6 +262,28 @@ export function BusinessPage({ initialPortfolio, initialBusinesses }: { initialP
       {pendingArchive && <ConfirmModal title="Archivar negocio" message={`¿Archivar ${pendingArchive.name}? Primero descargá el respaldo si necesitás conservarlo fuera de la aplicación.`} onCancel={() => setPendingArchive(null)} onAccept={() => void archiveBusiness(pendingArchive)} />}
     </section>
   );
+}
+
+function greeting(name: string) {
+  const hour = new Date().getHours();
+  const hello = hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
+  const first = name.trim().split(/\s+/)[0];
+  return first ? `${hello}, ${first}` : hello;
+}
+
+function signed(value: number) {
+  return `${value > 0 ? "+" : ""}${value}`;
+}
+
+function attentionPhrase(business: BusinessSummary) {
+  const parts = [];
+  if (business.criticalProducts > 0) parts.push(stockAlert(business.criticalProducts));
+  if (business.overdueTasks > 0) parts.push(business.overdueTasks === 1 ? "1 tarea vencida" : `${business.overdueTasks} tareas vencidas`);
+  return parts.join(" · ");
+}
+
+function rowWhen(value: string) {
+  return new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(value)).replace(".", "");
 }
 
 function businessInitial(name: string) {

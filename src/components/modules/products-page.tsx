@@ -6,6 +6,8 @@ import { ConfirmModal } from "@/components/forms/confirm-modal";
 import { IconAction } from "@/components/forms/icon-action";
 import { FormModal } from "@/components/forms/form-modal";
 import { DownloadList } from "@/components/forms/download-list";
+import { ProductAdvanced } from "@/components/modules/product-advanced";
+import { ProductImport } from "@/components/modules/product-import";
 import { ListSearch, SearchMiss, matchesQuery } from "@/components/forms/list-search";
 import { ModuleLayout } from "@/components/modules/customers-page";
 
@@ -27,6 +29,9 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
   const [stockPrompt, setStockPrompt] = useState<{ product: Product; direction: "in" | "out" } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Product | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [notice, setNotice] = useState("");
 
   async function load() {
     setLoading(true);
@@ -100,6 +105,8 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
     <ModuleLayout eyebrow="Operación" title={stockMode ? "Stock" : "Productos"}>
       <div className="customer-actions">
         <button className="auth-submit" type="button" onClick={openCreate}><PlusIcon />{stockMode ? "Nuevo ítem" : "Nuevo producto"}</button>
+        <button className="secondary-button" type="button" onClick={() => { setError(""); setNotice(""); setImportOpen(true); }}>Cargar varios</button>
+        <button className="secondary-button" type="button" disabled={loading || listed.length === 0} onClick={() => { setError(""); setNotice(""); setAdvancedOpen(true); }}>Opciones avanzadas</button>
         <DownloadList
           disabled={loading}
           choices={stockMode ? [
@@ -111,7 +118,8 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
           ]}
         />
       </div>
-      {error && !formOpen && !stockPrompt && <p className="form-error" role="alert">{error}</p>}
+      {error && !formOpen && !stockPrompt && !importOpen && !advancedOpen && <p className="form-error" role="alert">{error}</p>}
+      {notice && !importOpen && !advancedOpen && <p className="form-success">{notice}</p>}
       {listed.length > 0 && <ListSearch value={query} onChange={setQuery} placeholder={stockMode ? "Nombre o tipo" : "Nombre o tipo"} />}
       {loading ? <div className="module-state">Cargando...</div> : listed.length === 0 ? <div className="module-state">{stockMode ? "Todavía no hay insumos ni herramientas." : "Todavía no hay productos."}</div> : visible.length ? (
         <div className="record-scroll"><div className="record-list products">
@@ -155,6 +163,8 @@ export function ProductsPage({ businessId, mode = "catalog" }: { businessId: str
       {archiveTarget && <ConfirmModal title="Archivar" message={stockMode ? `¿Archivar ${archiveTarget.name}? Deja de aparecer en el stock.` : `¿Archivar ${archiveTarget.name}? Dejará de aparecer en ventas.`} onCancel={() => setArchiveTarget(null)} onAccept={() => void archiveProduct(archiveTarget)} />}
       {viewing && <FormModal title={viewing.name} onClose={() => setViewing(null)}><div className="record-detail"><p>{stockMode ? kindLabel(viewing.catalogKind) : (viewing.category || "Sin tipo")}</p>{stockMode ? null : <p>Precio <strong>{formatMoney(viewing.priceMinor)}</strong></p>}<p>Stock <strong>{viewing.stock}</strong> · mínimo {viewing.minimumStock}{viewing.stock <= viewing.minimumStock ? " · Bajo" : ""}</p>{viewing.costMinor !== null && <p>Costo <strong>{formatMoney(viewing.costMinor)}</strong></p>}<p>{viewing.description || "Sin descripción"}</p><div className="customer-actions"><IconAction label={stockMode ? "Sumar" : "Ingresar stock"} icon="add" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "in" }); setViewing(null); }} /><IconAction label={stockMode ? "Restar" : "Retirar stock"} icon="remove" onClick={() => { setError(""); setStockPrompt({ product: viewing, direction: "out" }); setViewing(null); }} disabled={viewing.stock === 0} /><IconAction label="Editar" icon="edit" onClick={() => { startEditing(viewing); setViewing(null); }} /><button className="text-button" type="button" onClick={() => { setArchiveTarget(viewing); setViewing(null); }}>Archivar</button></div></div></FormModal>}
       {stockPrompt && <StockAdjustModal product={stockPrompt.product} direction={stockPrompt.direction} stockMode={stockMode} error={error} onCancel={() => { setError(""); setStockPrompt(null); }} onAccept={(quantity, reason) => adjustStock(stockPrompt.product, quantity, reason)} />}
+      {importOpen && <ProductImport businessId={businessId} mode={stockMode ? "stock" : "catalog"} onClose={() => setImportOpen(false)} onDone={(message) => { setImportOpen(false); setNotice(message); void load(); }} />}
+      {advancedOpen && <ProductAdvanced businessId={businessId} stockMode={stockMode} onClose={() => setAdvancedOpen(false)} onDone={(message) => { setAdvancedOpen(false); setNotice(message); void load(); }} />}
     </ModuleLayout>
   );
 }

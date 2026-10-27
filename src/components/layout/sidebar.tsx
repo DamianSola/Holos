@@ -12,31 +12,39 @@ type SidebarProps = {
   businessName?: string;
   businesses?: ShellBusiness[];
   platformAdmin?: boolean;
+  userName?: string;
   isOpen: boolean;
   onClose: () => void;
 };
 
 type NavItem = { label: string; href: string; icon: NavIconName };
 
-export function Sidebar({ businessId, businessKind = "STORE", businessName = "", businesses = [], platformAdmin = false, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ businessId, businessKind = "STORE", businessName = "", businesses = [], platformAdmin = false, userName = "", isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const service = businessKind === "SERVICE";
-  const name = businessName || businesses.find((business) => business.id === businessId)?.name || "Este negocio";
-  const operation: NavItem[] = businessId
+  const routeId = pathname.match(/^\/businesses\/([^/]+)/)?.[1] ?? "";
+  const inside = Boolean(routeId);
+  const active = businesses.find((business) => business.id === routeId);
+  const service = (active?.kind ?? businessKind) === "SERVICE";
+  const currentId = routeId || businessId;
+  const name = active?.name || businessName || "Este negocio";
+  const isOwner = active?.role === "OWNER";
+  const operation: NavItem[] = inside
     ? [
-        ...(service ? [] : [{ label: "Ventas", href: `/businesses/${businessId}/sales`, icon: "sale" as const }]),
-        { label: service ? "Reservas" : "Pedidos", href: `/businesses/${businessId}/orders`, icon: service ? "calendar" as const : "order" as const },
-        ...(service ? [{ label: "Stock", href: `/businesses/${businessId}/stock`, icon: "stock" as const }] : [{ label: "Productos", href: `/businesses/${businessId}/products`, icon: "product" as const }]),
-        { label: "Clientes", href: `/businesses/${businessId}/customers`, icon: "customer" as const },
-        { label: "Proveedores", href: `/businesses/${businessId}/suppliers`, icon: "supplier" as const },
-        { label: "Gastos", href: `/businesses/${businessId}/expenses`, icon: "expense" as const },
-        { label: "Listas", href: `/businesses/${businessId}/lists`, icon: "list" as const },
+        { label: "Inicio", href: `/businesses/${currentId}`, icon: "board" },
+        { label: "Tareas", href: `/businesses/${currentId}#tareas`, icon: "list" },
+        ...(service ? [] : [{ label: "Ventas", href: `/businesses/${currentId}/sales`, icon: "sale" as const }]),
+        { label: service ? "Reservas" : "Pedidos", href: `/businesses/${currentId}/orders`, icon: service ? "calendar" as const : "order" as const },
+        ...(service ? [{ label: "Stock", href: `/businesses/${currentId}/stock`, icon: "stock" as const }] : [{ label: "Productos", href: `/businesses/${currentId}/products`, icon: "product" as const }]),
+        { label: "Clientes", href: `/businesses/${currentId}/customers`, icon: "customer" as const },
+        { label: "Proveedores", href: `/businesses/${currentId}/suppliers`, icon: "supplier" as const },
+        { label: "Gastos", href: `/businesses/${currentId}/expenses`, icon: "expense" as const },
+        { label: "Listas", href: `/businesses/${currentId}/lists`, icon: "list" as const },
       ]
-    : [];
-  const admin: NavItem[] = businessId
+    : [{ label: "Inicio", href: "/", icon: "board" }];
+  const admin: NavItem[] = inside
     ? [
-        { label: "Facturación", href: `/businesses/${businessId}/fiscal`, icon: "invoice" },
-        { label: "Equipo", href: `/businesses/${businessId}/team`, icon: "team" },
+        ...(isOwner ? [{ label: "Facturación", href: `/businesses/${currentId}/fiscal`, icon: "invoice" as const }] : []),
+        { label: "Equipo", href: `/businesses/${currentId}/team`, icon: "team" as const },
       ]
     : [];
   const account: NavItem[] = [
@@ -58,13 +66,12 @@ export function Sidebar({ businessId, businessKind = "STORE", businessName = "",
           <HolosLogo />
         </a>
         <div className="sidebar-group">
-          <div className="sidebar-section-label">Operación</div>
+          <div className="sidebar-section-label">{inside ? "Este negocio" : "General"}</div>
           <nav>
             <ul className="navigation-list">
-              <NavLink item={{ label: "Tablero", href: "/", icon: "board" }} pathname={pathname} onClose={onClose} />
-              {businessId ? (
+              {inside ? (
                 <BusinessSwitch
-                  businessId={businessId}
+                  businessId={currentId}
                   name={name}
                   businesses={businesses}
                   pathname={pathname}
@@ -74,18 +81,40 @@ export function Sidebar({ businessId, businessKind = "STORE", businessName = "",
               {operation.map((item) => (
                 <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
               ))}
+              {inside ? null : businesses.map((business) => (
+                <li key={business.id}>
+                  <a className="navigation-link" href={`/businesses/${business.id}`} onClick={() => { rememberBusiness(business.id); onClose(); }}>
+                    <NavIcon name="store" />
+                    <span className="business-switch-name">{business.name}</span>
+                  </a>
+                </li>
+              ))}
             </ul>
           </nav>
         </div>
         {admin.length > 0 && <NavGroup label="Administración" items={admin} pathname={pathname} onClose={onClose} />}
         <NavGroup label="Cuenta" items={account} pathname={pathname} onClose={onClose} />
-        <div className="sidebar-footer">
-          <HolosLogo variant="mark" className="sidebar-footer-mark" />
-          <p>{service ? "La reserva cobra el servicio. El stock de insumos y herramientas se mueve aparte." : "Una venta mueve stock, cliente, factura y tablero."}</p>
+        {inside ? <a className="sidebar-back" href="/" onClick={onClose}>Volver al resumen general</a> : null}
+        <div className="sidebar-user">
+          <span className="avatar" aria-hidden="true">{initials(userName)}</span>
+          <div>
+            <strong>{userName || "Tu cuenta"}</strong>
+            <button type="button" onClick={() => void logout()}>Cerrar sesión</button>
+          </div>
         </div>
       </aside>
     </>
   );
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((part) => part[0]?.toLocaleUpperCase("es-AR") ?? "").join("") || "H";
+}
+
+async function logout() {
+  await fetch("/api/v1/auth/logout", { method: "POST" });
+  window.location.href = "/login";
 }
 
 function BusinessSwitch({

@@ -17,6 +17,7 @@ export async function WorkspaceShell({ children, businessId }: { children: React
       id: membership.business.id,
       name: membership.business.name,
       kind: membership.business.kind,
+      role: membership.role,
     }));
   const current =
     businesses.find((business) => business.id === businessId) ??

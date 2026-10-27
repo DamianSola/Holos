@@ -26,7 +26,7 @@ export async function getPortfolioDashboard(userId: string) {
   });
 
   if (!businessIds.length) {
-    return { businesses: [], totals: emptyPortfolioTotals(), trend: buildTrend(months.map((month) => ({ ...month, incomeMinor: 0, expensesMinor: 0 }))) };
+    return { businesses: [], totals: emptyPortfolioTotals(), activity: [], trend: buildTrend(months.map((month) => ({ ...month, incomeMinor: 0, expensesMinor: 0 }))) };
   }
 
   const ranges = [
@@ -34,13 +34,20 @@ export async function getPortfolioDashboard(userId: string) {
     { start: startOfMonth, end: null },
     { start: startOfToday, end: null },
   ];
-  const [saleSums, paymentSums, expenseSums, customerCount, productCount, criticalProducts] = await Promise.all([
+  const [saleSums, paymentSums, expenseSums, customerCount, productCount, criticalProducts, confirmedSalesCount, activity] = await Promise.all([
     sumRanges(businessIds, "sale", ranges),
     sumRanges(businessIds, "payment", ranges),
     sumRanges(businessIds, "expense", ranges),
     prisma.customer.count({ where: { businessId: { in: businessIds }, deletedAt: null } }),
     prisma.product.count({ where: { businessId: { in: businessIds }, status: "ACTIVE", deletedAt: null } }),
     prisma.product.count({ where: { businessId: { in: businessIds }, status: "ACTIVE", deletedAt: null, stock: { lte: prisma.product.fields.minimumStock } } }),
+    prisma.sale.count({ where: { businessId: { in: businessIds }, orderId: null, status: "CONFIRMED", confirmedAt: { gte: startOfMonth } } }),
+    prisma.activityEvent.findMany({
+      where: { businessId: { in: businessIds } },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { id: true, type: true, createdAt: true, business: { select: { id: true, name: true } } },
+    }),
   ]);
 
   const salesMonthMinor = (saleSums[6] ?? 0) + (paymentSums[6] ?? 0);
@@ -49,7 +56,8 @@ export async function getPortfolioDashboard(userId: string) {
 
   return {
     businesses: memberships.map((membership) => ({ id: membership.business.id, name: membership.business.name, role: membership.role })),
-    totals: { businessCount: memberships.length, customerCount, productCount, criticalProducts, salesMonthMinor, salesTodayMinor, expensesMonthMinor, netMonthMinor: salesMonthMinor - expensesMonthMinor },
+    totals: { businessCount: memberships.length, customerCount, productCount, criticalProducts, salesMonthMinor, salesTodayMinor, expensesMonthMinor, netMonthMinor: salesMonthMinor - expensesMonthMinor, confirmedSalesCount },
+    activity: activity.map((event) => ({ id: event.id, type: event.type, createdAt: event.createdAt.toISOString(), businessId: event.business.id, businessName: event.business.name })),
     trend: buildTrend(months.map((month, index) => ({
       label: month.label,
       current: month.current,
@@ -82,7 +90,7 @@ async function sumRanges(businessIds: string[], kind: "sale" | "payment" | "expe
 }
 
 function emptyPortfolioTotals() {
-  return { businessCount: 0, customerCount: 0, productCount: 0, criticalProducts: 0, salesMonthMinor: 0, salesTodayMinor: 0, expensesMonthMinor: 0, netMonthMinor: 0 };
+  return { businessCount: 0, customerCount: 0, productCount: 0, criticalProducts: 0, salesMonthMinor: 0, salesTodayMinor: 0, expensesMonthMinor: 0, netMonthMinor: 0, confirmedSalesCount: 0 };
 }
 
 function buildTrend(periods: Array<{ label: string; incomeMinor: number; expensesMinor: number; current: boolean }>) {
@@ -142,7 +150,8 @@ export async function getBusinessDashboard(businessId: string, now = new Date())
   const day = movementWindows(now).day;
   const months = businessTrendMonths(now);
   const ranges = months.map((month) => ({ start: month.start, end: month.end }));
-  const [movement, saleSums, paymentSums, expenseSums, criticalProducts, activity, recentSales, recentPayments, business, members, openProductOrders, openServiceOrders, todayVisits, schedule] = await Promise.all([
+  const monthWindow = movementWindows(now).month;
+  const [movement, saleSums, paymentSums, expenseSums, criticalProducts, activity, recentSales, recentPayments, business, members, openProductOrders, openServiceOrders, todayVisits, schedule, saleStatuses, soldItems, criticalCount, activeProducts, emptyProducts, recentMovements] = await Promise.all([
     getMovement(businessId, now),
     sumRanges([businessId], "sale", ranges),
     sumRanges([businessId], "payment", ranges),
@@ -171,6 +180,16 @@ export async function getBusinessDashboard(businessId: string, now = new Date())
       take: 8,
     }),
     prisma.reservationSchedule.findUnique({ where: { businessId }, select: { mode: true } }),
+    prisma.sale.groupBy({ by: ["status"], where: { businessId, createdAt: { gte: monthWindow.start, lt: monthWindow.end } }, _count: { _all: true } }),
+    prisma.saleItem.groupBy({
+      by: ["productName"],
+      where: { sale: { businessId, status: "CONFIRMED", confirmedAt: { gte: monthWindow.start, lt: monthWindow.end } } },
+      _sum: { quantity: true, totalMinor: true },
+    }),
+    prisma.product.count({ where: { businessId, deletedAt: null, status: "ACTIVE", stock: { lte: prisma.product.fields.minimumStock } } }),
+    prisma.product.count({ where: { businessId, deletedAt: null, status: "ACTIVE" } }),
+    prisma.product.count({ where: { businessId, deletedAt: null, status: "ACTIVE", stock: { lte: 0 } } }),
+    prisma.inventoryMovement.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, type: true, quantity: true, createdAt: true, product: { select: { name: true } } } }),
   ]);
 
   return {
@@ -192,6 +211,15 @@ export async function getBusinessDashboard(businessId: string, now = new Date())
     serviceDueMinor: openServiceOrders.reduce((total, order) => total + Math.max(0, (order.amountMinor ?? 0) - order.payments.reduce((paid, payment) => paid + payment.amountMinor, 0)), 0),
     todayVisits,
     scheduleMode: schedule?.mode ?? null,
+    saleStatuses: saleStatuses.map((row) => ({ status: row.status, count: row._count._all })),
+    topProducts: soldItems
+      .map((row) => ({ name: row.productName, quantity: row._sum.quantity ?? 0, totalMinor: row._sum.totalMinor ?? 0 }))
+      .sort((left, right) => right.quantity - left.quantity || right.totalMinor - left.totalMinor)
+      .slice(0, 5),
+    criticalCount,
+    activeProducts,
+    emptyProducts,
+    recentMovements,
   };
 }
 

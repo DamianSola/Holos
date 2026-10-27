@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   if (user) return { title: "Holos" };
   return {
     title: "Holos — El negocio, entero",
-    description: "Ventas, stock, clientes y el día del negocio, en un solo lugar. 14 días gratis.",
+    description: "Clientes, ventas, stock, tareas y equipo, conectados en una sola plataforma.",
   };
 }
 
@@ -35,7 +35,7 @@ export default async function Home() {
 
   return (
     <WorkspaceShell>
-      <BusinessPage initialPortfolio={portfolio} initialBusinesses={directory} />
+      <BusinessPage initialPortfolio={portfolio} initialBusinesses={directory} userName={user.name ?? user.email} />
     </WorkspaceShell>
   );
 }

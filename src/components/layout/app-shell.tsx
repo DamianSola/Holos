@@ -40,6 +40,7 @@ export function AppShell({ children, businessId, userName, businessKind = "STORE
         businessName={businessName}
         businesses={businesses}
         platformAdmin={platformAdmin}
+        userName={userName}
         isOpen={isNavigationOpen}
         onClose={() => setNavigationOpen(false)}
       />

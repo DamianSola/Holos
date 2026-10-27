@@ -44,7 +44,7 @@ export function Header({ onMenuClick, userName, businessId, businessKind = "STOR
         </Link>
         {showBusinessLogo ? <img className="business-logo" src={businessImage ?? ""} alt="" /> : null}
         <div className="breadcrumbs" aria-label="Ubicación">
-          {section === "Tablero" ? <strong>Tablero</strong> : <><Link href="/">Tablero</Link><span aria-hidden="true">/</span><strong>{section}</strong></>}
+          {pathname === "/" ? <strong>Resumen general</strong> : <><Link href="/">Resumen general</Link><span aria-hidden="true">/</span><strong>{section}</strong></>}
         </div>
       </div>
       <div className="topbar-actions">
@@ -92,6 +92,6 @@ function sectionLabel(pathname: string, businessKind: "STORE" | "SERVICE") {
   if (pathname.endsWith("/expenses")) return "Gastos";
   if (pathname.endsWith("/lists")) return "Listas";
   if (pathname.endsWith("/team")) return "Equipo";
-  if (pathname.startsWith("/businesses/")) return "Negocio";
+  if (pathname.startsWith("/businesses/")) return "Inicio";
   return "Holos";
 }

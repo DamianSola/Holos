@@ -4,6 +4,7 @@ export type ShellBusiness = {
   id: string;
   name: string;
   kind: "STORE" | "SERVICE";
+  role: "OWNER" | "EMPLOYEE";
 };
 
 export function rememberBusiness(id: string) {
